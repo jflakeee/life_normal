@@ -11,7 +11,8 @@
 		"test": "vitest run",
 		"sim": "vitest run src/lib/sim --reporter=verbose",
 		"size": "node scripts/check-size.mjs",
-		"e2e": "playwright test"
+		"e2e": "playwright test",
+		"build:single": "vite build --config vite.artifact.config.ts"
 	},
 	"devDependencies": {
 		"@playwright/test": "1.56",
@@ -23,6 +24,7 @@
 		"svelte-check": "^4.7.7",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.5",
+		"vite-plugin-singlefile": "^2.3.4",
 		"vitest": "^5.0.5"
 	},
 	"description": "동네 임무: 브라우저에서 도는 일상 임무 게임"

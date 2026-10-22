@@ -17,8 +17,9 @@
 	padding-top: env(safe-area-inset-top, 0px);
 	padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+/* 어두운 테마: 기기 설정을 따르되, 앱을 띄운 화면이 data-theme로 정하면 그쪽을 따른다 */
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme='light']) {
 		color-scheme: dark;
 		--paper: #151b17;
 		--surface: #1d2520;
@@ -31,6 +32,19 @@
 		--event: #e2b64a;
 		--event-bg: #2c2716;
 	}
+}
+:root[data-theme='dark'] {
+	color-scheme: dark;
+		--paper: #151b17;
+		--surface: #1d2520;
+		--ink: #e5ebe4;
+		--ink-2: #9aa79d;
+		--line: #344038;
+		--action: #86afd9;
+		--action-ink: #0f1a24;
+		--seal: #e0675b;
+		--event: #e2b64a;
+		--event-bg: #2c2716;
 }
 *,
 *::before,

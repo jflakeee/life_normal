@@ -27,6 +27,9 @@ npx playwright install chromium && npm run e2e         # 하위 경로 빌드로
 
 ## 배포
 
+한 파일 빌드: `npm run build:single` → `dist-artifact/index.html` 하나로 게임 전체가 열린다 (외부 파일 없음, claude.ai 아티팩트 등).
+
+
 `main`에 푸시하면 `pages` 워크플로가 테스트 → 빌드 → GitHub Pages 배포를 한다.
 처음 한 번은 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 바꿔야 한다.
 
