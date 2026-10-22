@@ -248,6 +248,53 @@
    "line": "COLLECTING",
    "tier": "HOBBY",
    "type": "REQUEST"
+  },
+  {
+   "id": "process_lumber",
+   "name": "각재 가공",
+   "line": "CONSTRUCTION",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "process": {
+    "input": "wood",
+    "output": "lumber"
+   }
+  },
+  {
+   "id": "process_medicine",
+   "name": "약품 조제",
+   "line": "MEDICAL",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "process": {
+    "input": "herb",
+    "output": "medicine"
+   }
+  },
+  {
+   "id": "process_meat",
+   "name": "정육 손질",
+   "line": "HUNTING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "min_rank": "REGULAR",
+   "process": {
+    "input": "meat",
+    "output": "cut_meat"
+   }
+  },
+  {
+   "id": "process_leather",
+   "name": "가죽 제품 제작",
+   "line": "HUNTING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "min_rank": "EXPERT",
+   "gear": 1500,
+   "process": {
+    "input": "hide",
+    "output": "leather_goods"
+   }
   }
  ],
  "chain": [
@@ -293,6 +340,12 @@
        "target": "herb",
        "value": 2.0,
        "duration": 40
+      },
+      {
+       "kind": "DEMAND",
+       "target": "medicine",
+       "value": 1.5,
+       "duration": 40
       }
      ]
     }
@@ -322,6 +375,12 @@
       {
        "kind": "SPAWN_BOOST",
        "target": "TRANSPORT",
+       "value": 2.0,
+       "duration": 64
+      },
+      {
+       "kind": "DEMAND",
+       "target": "lumber",
        "value": 2.0,
        "duration": 64
       }
@@ -360,6 +419,34 @@
    "name": "가죽",
    "base_price": 12,
    "line": "HUNTING"
+  },
+  {
+   "id": "lumber",
+   "name": "각재",
+   "base_price": 10,
+   "line": "CONSTRUCTION",
+   "from": "wood"
+  },
+  {
+   "id": "medicine",
+   "name": "약품",
+   "base_price": 15,
+   "line": "MEDICAL",
+   "from": "herb"
+  },
+  {
+   "id": "cut_meat",
+   "name": "정육",
+   "base_price": 20,
+   "line": "HUNTING",
+   "from": "meat"
+  },
+  {
+   "id": "leather_goods",
+   "name": "가죽 제품",
+   "base_price": 30,
+   "line": "HUNTING",
+   "from": "hide"
   }
  ]
 }

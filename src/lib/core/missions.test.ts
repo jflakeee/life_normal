@@ -14,8 +14,8 @@ import {
 import { newPlayer } from './model';
 
 describe('missions', () => {
-	it('has 33 templates', () => {
-		expect(Object.keys(TEMPLATES)).toHaveLength(33);
+	it('has 37 templates (가공 4개 포함)', () => {
+		expect(Object.keys(TEMPLATES)).toHaveLength(37);
 	});
 
 	it('every job has an entry-level routine mission', () => {
@@ -82,5 +82,42 @@ describe('missions', () => {
 			b.update();
 		}
 		expect(b.save()).toEqual(a.save());
+	});
+});
+
+describe('processing', () => {
+	it('pays half the margin between product and raw prices', () => {
+		const board = new Board(newTown(0));
+		// 기준가: 각재 10 − 목재 4 = 6 → 몫 0.5 → 3 G, 가죽 제품 30 − 가죽 12 = 18 → 9 G
+		expect(board.rewardFor('process_lumber')).toBe(3);
+		expect(board.rewardFor('process_leather')).toBe(9);
+	});
+
+	it('links to the market: dearer raw material shrinks the margin, product demand grows it', () => {
+		const board = new Board(newTown(0));
+		const base = board.rewardFor('process_medicine');
+		applyEffect(board.world, { kind: 'DEMAND', target: 'herb', value: 2, duration: 40 });
+		expect(board.rewardFor('process_medicine')).toBeLessThan(base);
+		applyEffect(board.world, { kind: 'DEMAND', target: 'medicine', value: 1.5, duration: 40 });
+		expect(board.rewardFor('process_medicine')).toBeGreaterThan(0);
+	});
+
+	it('never pays a negative reward', () => {
+		const board = new Board(newTown(0));
+		board.world.market.hide.demand = 1e6; // 원자재 폭등
+		board.world.market.leather_goods.supply = 1e6; // 제품 폭락
+		expect(board.rewardFor('process_leather')).toBe(0);
+	});
+
+	it('storm raises lumber demand along with wood', () => {
+		const storm = CHAINS.find((c) => c.id === 'storm')!;
+		expect(storm.steps[0].onStart.map((e) => e.target)).toEqual(expect.arrayContaining(['wood', 'lumber']));
+	});
+
+	it('fills new market items into an old save', async () => {
+		const { fillMarket } = await import('./missions');
+		const market = { wood: { base: 4, supply: 10, demand: 10 } };
+		fillMarket(market as never);
+		expect(Object.keys(market)).toEqual(expect.arrayContaining(['lumber', 'medicine', 'cut_meat', 'leather_goods']));
 	});
 });

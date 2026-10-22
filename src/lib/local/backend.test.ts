@@ -224,3 +224,30 @@ describe('save transfer', () => {
 		expect(st.money).toBe(100);
 	});
 });
+
+describe('processing missions', () => {
+	it('needs the job, then pays margin plus wage', async () => {
+		const { be, advance } = setup();
+		await expect(be.command('POST', '/queue', { template_id: 'process_lumber', count: 1 })).rejects.toMatchObject({ status: 409 });
+		be.game.query((s) => {
+			s.p.jobs.CONSTRUCTION = { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
+		});
+		const r = await be.command<{ reward_each: number }>('POST', '/queue', { template_id: 'process_lumber', count: 2 });
+		expect(r.reward_each).toBe(3);
+		advance(2 * TICK_SECONDS);
+		const c = await be.command<{ claimed: { reward: number; pay: number }[] }>('POST', '/claims');
+		expect(c.claimed.map((x) => x.reward)).toEqual([3, 3]);
+		expect(c.claimed[0].pay).toBeGreaterThan(0);
+		expect(audit(be.game.data)).toBe(0);
+	});
+
+	it('old saves without processed items keep working', async () => {
+		const { be, store } = setup();
+		const d = JSON.parse(store.raw!);
+		for (const k of ['lumber', 'medicine', 'cut_meat', 'leather_goods']) delete d.town.world.market[k];
+		const reopened = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => 1_000_000 });
+		const m = await reopened.get<Record<string, unknown>>('/market');
+		expect(Object.keys(m)).toContain('leather_goods');
+		expect(be).toBeDefined();
+	});
+});

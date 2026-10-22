@@ -43,7 +43,9 @@
 				<li class="panel row" class:picked={fillTarget === t.id}>
 					<button class="pick" onclick={() => (picked = t.id)} aria-pressed={fillTarget === t.id}>
 						<h2>{t.name}</h2>
-						<p class="quiet">{lines[t.line]}{t.tier === 'JOB' ? ' 직업' : ''}</p>
+						<p class="quiet">
+							{lines[t.line]}{t.tier === 'JOB' ? ' 직업' : ''}{t.process ? ` · ${t.process.input} → ${t.process.output}` : ''}
+						</p>
 					</button>
 					<button class="secondary" disabled={free <= 0 || game.busy} onclick={() => game.queue(t.id)}>+ 예약</button>
 				</li>

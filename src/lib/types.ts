@@ -6,6 +6,7 @@ export interface Template {
 	type: 'ROUTINE' | 'REQUEST' | 'EMERGENCY';
 	min_rank: string | null;
 	gear: number;
+	process: { input: string; output: string } | null;
 }
 
 export interface Catalog {
@@ -59,5 +60,5 @@ export interface Board {
 	events: string[];
 }
 
-export type Market = Record<string, { name: string; base: number; price: number }>;
+export type Market = Record<string, { name: string; base: number; price: number; from: string | null }>;
 export type Collection = Record<string, { owned: number; total: number; xp_mult: number }>;

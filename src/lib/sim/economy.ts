@@ -1,8 +1,8 @@
 /** 경제 시뮬레이션: 플레이어 N명이 취미 → 직업 → 사업으로 성장하며 회수율과 계층 수입을 잰다.
  *  1틱 = 임무 1건(3분, 활동량 기준). 사업 정산은 임무 8건당 1회
  *  (모바일 기준: 하루 80건 플레이 · 하루 정산 10회와 같은 비율). */
-import { LINES, type Line, type MissionType, type Rank, type Tier } from '$lib/core/enums';
-import { Board, newTown, priceRatio } from '$lib/core/missions';
+import { LINES, rankIndex, type Line, type MissionType, type Rank, type Tier } from '$lib/core/enums';
+import { Board, newTown, priceRatio, processReward, TEMPLATES } from '$lib/core/missions';
 import {
 	BUSINESS_OPEN_COST,
 	BUSINESS_REVENUE,
@@ -41,6 +41,10 @@ const RISKY: Line[] = ['HUNTING', 'SECURITY'];
 const MAX_BUSINESSES = 10;
 const EVENT_TAKE_P = 0.5;
 const YIELD_ITEMS: Partial<Record<Line, string[]>> = { CONSTRUCTION: ['wood', 'stone'], MEDICAL: ['herb'], HUNTING: ['meat', 'hide'] };
+const PROCESS_TEMPLATES: Partial<Record<Line, (typeof TEMPLATES)[string][]>> = {};
+for (const t of Object.values(TEMPLATES)) if (t.process) (PROCESS_TEMPLATES[t.line] ??= []).push(t);
+const REFERENCE_WORLD = newTown(0).world; // 이벤트 없는 실행에서 쓰는 기준 시세
+
 export const MILESTONES = ['직업', 'REGULAR', 'EXPERT', 'CHIEF', '사업'] as const;
 
 export class Ledger {
@@ -124,7 +128,15 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 		led.spend('판매세', tax);
 		tier = 'HOBBY';
 	} else {
-		const pay = (hourlyPay(job) + JOB_BONUS_PER_H * rng.uniform(0.5, 1.5)) * MISSION_HOURS;
+		// 성과급: 일반 직업 임무(평균 5 G) 또는, 더 낫다면 가공 이윤 (플레이어는 이득인 쪽을 고른다)
+		let bonus = JOB_BONUS_PER_H * rng.uniform(0.5, 1.5) * MISSION_HOURS;
+		const world = board?.world ?? REFERENCE_WORLD;
+		for (const t of PROCESS_TEMPLATES[line] ?? []) {
+			const rankOk = !t.minRank || rankIndex(job.rank) >= rankIndex(t.minRank);
+			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
+			if (rankOk && gearOk) bonus = Math.max(bonus, processReward(world, t.process!));
+		}
+		const pay = hourlyPay(job) * MISSION_HOURS + bonus;
 		p.money += pay;
 		led.earn('직업 급여', pay);
 		job.jobMissions++;

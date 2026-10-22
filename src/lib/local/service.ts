@@ -6,7 +6,7 @@
 import { progress } from '$lib/core/collection';
 import B from '$lib/core/data/balance.json';
 import { LINE_NAME, LINES, type Line } from '$lib/core/enums';
-import { Board, CHAINS, collectDrop, ITEMS, newTown, priceRatio, QUEUE_LIMIT, TEMPLATES, type TownState } from '$lib/core/missions';
+import { Board, CHAINS, collectDrop, fillMarket, ITEMS, newTown, priceRatio, QUEUE_LIMIT, TEMPLATES, type TownState } from '$lib/core/missions';
 import {
 	availableTo,
 	BUSINESS_OPEN_COST,
@@ -228,7 +228,7 @@ export function market(s: Session): Json {
 	return Object.fromEntries(
 		Object.entries(s.board.world.market).map(([k, e]) => [
 			k,
-			{ name: ITEM_NAMES[k], base: e.base, price: Math.round(price(e) * 100) / 100 }
+			{ name: ITEM_NAMES[k], base: e.base, price: Math.round(price(e) * 100) / 100, from: ITEMS[k]?.from ?? null }
 		])
 	);
 }
@@ -244,7 +244,16 @@ export function catalog(): Json {
 		lines: LINE_NAME,
 		templates: Object.values(TEMPLATES)
 			.filter((t) => !t.eventOnly)
-			.map((t) => ({ id: t.id, name: t.name, line: t.line, tier: t.tier, type: t.type, min_rank: t.minRank, gear: t.gear })),
+			.map((t) => ({
+				id: t.id,
+				name: t.name,
+				line: t.line,
+				tier: t.tier,
+				type: t.type,
+				min_rank: t.minRank,
+				gear: t.gear,
+				process: t.process && { input: ITEM_NAMES[t.process.input], output: ITEM_NAMES[t.process.output] }
+			})),
 		shop: SHOP,
 		repair_rate: REPAIR_RATE,
 		queue_limit: QUEUE_LIMIT,
@@ -459,6 +468,12 @@ export function parseSave(raw: string): SaveData {
 	const shape = d.player?.skills && d.town?.world && Array.isArray(d.runs) && d.ledger?.totals && Array.isArray(d.town?.rng);
 	if (!shape) throw new GameError('세이브 파일이 손상되었습니다');
 	if (audit(d) !== 0) throw new GameError('세이브의 돈 기록이 맞지 않습니다');
+	return normalizeSave(d);
+}
+
+/** 이전 세이브에 없는 새 데이터(시장 품목 등)를 채운다 */
+export function normalizeSave(d: SaveData): SaveData {
+	fillMarket(d.town.world.market);
 	return d;
 }
 
@@ -477,7 +492,7 @@ export class LocalGame {
 		seed: string = Math.random().toString(36).slice(2)
 	) {
 		const saved = store.load();
-		this.d = saved && saved.version === SAVE_VERSION ? saved : newSave(this.clock(), seed);
+		this.d = saved && saved.version === SAVE_VERSION ? normalizeSave(saved) : newSave(this.clock(), seed);
 		this.store.save(this.d);
 	}
 

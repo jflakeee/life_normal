@@ -29,9 +29,16 @@ export interface MissionTemplate {
 	gear: number;
 	yieldItem: string | null; // 채집형: 보상이 이 아이템 시세에 연동
 	eventOnly: boolean; // 연계 이벤트에서만 등장
+	process: { input: string; output: string } | null; // 가공: 원자재를 사서 가공품으로 판다
 }
 
-type RawTemplate = (typeof M.template)[number] & Partial<{ min_rank: string; gear: number; yield_item: string; event_only: boolean }>;
+type RawTemplate = { id: string; name: string; line: string; tier: string; type: string } & Partial<{
+	min_rank: string;
+	gear: number;
+	yield_item: string;
+	event_only: boolean;
+	process: { input: string; output: string };
+}>;
 
 export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
 	(M.template as RawTemplate[]).map((t) => [
@@ -45,7 +52,8 @@ export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
 			minRank: (t.min_rank as Rank) ?? null,
 			gear: t.gear ?? 0,
 			yieldItem: t.yield_item ?? null,
-			eventOnly: t.event_only ?? false
+			eventOnly: t.event_only ?? false,
+			process: t.process ?? null
 		}
 	])
 );
@@ -55,10 +63,17 @@ export interface ItemInfo {
 	name: string;
 	base: number;
 	line: Line;
+	from: string | null; // 가공품이면 원자재 id
 }
+type RawItem = { id: string; name: string; base_price: number; line: string; from?: string };
 export const ITEMS: Record<string, ItemInfo> = Object.fromEntries(
-	M.item.map((i) => [i.id, { id: i.id, name: i.name, base: i.base_price, line: i.line as Line }])
+	(M.item as RawItem[]).map((i) => [i.id, { id: i.id, name: i.name, base: i.base_price, line: i.line as Line, from: i.from ?? null }])
 );
+
+/** 저장된 시장에 새로 생긴 품목을 채운다 (이전 세이브 호환) */
+export function fillMarket(market: Record<string, MarketEntry>): void {
+	for (const [id, e] of Object.entries(defaultMarket())) market[id] ??= e;
+}
 
 export const defaultMarket = (): Record<string, MarketEntry> =>
 	Object.fromEntries(Object.values(ITEMS).map((i) => [i.id, { base: i.base, supply: 10, demand: 10 }]));
@@ -153,6 +168,12 @@ export function priceRatio(w: World, itemId: string): number {
 	return price(e) / e.base;
 }
 
+/** 가공 보상: (가공품 시세 − 원자재 시세) × 몫. 원자재가 비싸지면 이윤이 줄고, 손해면 0 */
+export function processReward(w: World, p: { input: string; output: string }): number {
+	const margin = price(w.market[p.output]) - price(w.market[p.input]);
+	return Math.max(0, Math.round(margin * MB.process_share));
+}
+
 export function applyEffect(w: World, eff: Effect): void {
 	if (eff.kind === 'BIZ_BONUS') {
 		const line = eff.target as Line;
@@ -220,6 +241,7 @@ export class Board {
 	rewardFor(templateId: string): number {
 		const t = TEMPLATES[templateId];
 		if (t.type === 'EMERGENCY' && t.tier === 'JOB') return MB.emergency_job_reward;
+		if (t.process) return processReward(this.world, t.process);
 		let r = MB.tier_base_reward[t.tier] * MB.type_mult[t.type];
 		if (t.yieldItem) r *= priceRatio(this.world, t.yieldItem);
 		return Math.round(r);

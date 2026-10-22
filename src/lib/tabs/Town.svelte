@@ -6,6 +6,8 @@
 	const p = $derived(game.player!);
 	const biz = $derived(game.catalog!.business);
 	const items = $derived(Object.entries(game.market));
+	const raw = $derived(items.filter(([, m]) => !m.from));
+	const processed = $derived(items.filter(([, m]) => m.from));
 	const moved = $derived(items.some(([, m]) => Math.abs(m.price - m.base) > 0.01));
 	const chiefLines = $derived(Object.entries(p.jobs).filter(([, j]) => j.rank === 'CHIEF'));
 	const events = $derived(game.board.events.slice(-3).reverse());
@@ -21,12 +23,14 @@
 
 	<section class="panel">
 		<h2>오늘 시세</h2>
-		<p class="quiet">채집·수렵 임무 보상이 이 시세를 따라갑니다</p>
+		<p class="quiet">채집·수렵 보상은 원자재 시세를, 가공 이윤은 두 시세의 차이를 따라갑니다</p>
+		{#each [['원자재', raw], ['가공품', processed]] as const as [title, group] (title)}
+		<h3>{title}</h3>
 		<ul class="prices">
-			{#each items as [id, m] (id)}
+			{#each group as [id, m] (id)}
 				{@const d = m.price / m.base - 1}
 				<li class="row">
-					<span>{m.name}</span>
+					<span>{m.name}{m.from ? ` ← ${game.market[m.from].name}` : ''}</span>
 					<span class="num">
 						{m.price.toFixed(1)} G
 						<small class:up={d > 0.005} class:down={d < -0.005}>
@@ -36,6 +40,7 @@
 				</li>
 			{/each}
 		</ul>
+		{/each}
 	</section>
 
 	<section class="panel stack">
@@ -68,9 +73,15 @@
 </div>
 
 <style>
+	h3 {
+		margin: 14px 0 0;
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--ink-2);
+	}
 	.prices {
 		list-style: none;
-		margin: 10px 0 0;
+		margin: 4px 0 0;
 		padding: 0;
 	}
 	.prices li {
