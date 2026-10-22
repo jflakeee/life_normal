@@ -66,6 +66,7 @@ interface Agent {
 	p: Player;
 	line: Line;
 	milestones: Partial<Record<(typeof MILESTONES)[number], number>>;
+	days: Partial<Record<(typeof MILESTONES)[number], number>>;
 	income: Record<Tier, { sum: number; n: number }>;
 	bizDue: number;
 }
@@ -79,6 +80,10 @@ export interface Params {
 	bizPerMission: number;
 	repairRate: number;
 	bizTax: number;
+	/** 하루 단위 모드 (작업대): 날마다 limit건, full건 이후 보상률 overRate. hours 대신 days만큼 돈다 */
+	daily: { days: number; limit: number; full: number; overRate: number; settlementsPerDay: number } | null;
+	/** 현재 날짜 (하루 단위 모드에서 내부용) */
+	day: number;
 }
 
 export const DEFAULT_PARAMS: Params = {
@@ -89,7 +94,9 @@ export const DEFAULT_PARAMS: Params = {
 	expand: true,
 	bizPerMission: 1 / MISSIONS_PER_DAY,
 	repairRate: REPAIR_RATE,
-	bizTax: BUSINESS_TAX
+	bizTax: BUSINESS_TAX,
+	daily: null,
+	day: 0
 };
 
 export interface Result {
@@ -99,6 +106,7 @@ export interface Result {
 	recovery: number;
 	reached(m: (typeof MILESTONES)[number]): number;
 	medianHours(m: (typeof MILESTONES)[number]): number;
+	medianDays(m: (typeof MILESTONES)[number]): number;
 	tierIncome(t: Tier): number;
 }
 
@@ -109,7 +117,7 @@ function median(xs: number[]): number {
 	return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Board | null) {
+function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Board | null, rate = 1) {
 	const { p, line } = a;
 	const hours = t * MISSION_HOURS;
 	const before = p.money;
@@ -119,7 +127,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 
 	// 1) 활동 수입 + 경험치
 	if (!job) {
-		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3);
+		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate;
 		const items = YIELD_ITEMS[line];
 		if (board && items) gross *= items.reduce((s, i) => s + priceRatio(board.world, i), 0) / items.length;
 		const tax = gross * SALES_TAX;
@@ -136,14 +144,14 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
 			if (rankOk && gearOk) bonus = Math.max(bonus, processReward(world, t.process!));
 		}
-		const pay = hourlyPay(job) * MISSION_HOURS + bonus;
+		const pay = (hourlyPay(job) * MISSION_HOURS + bonus) * rate;
 		p.money += pay;
 		led.earn('직업 급여', pay);
 		job.jobMissions++;
 		if (mtype === 'REQUEST') job.requestsDone++;
 		tier = 'JOB';
 	}
-	gainXp(p, line, MISSION_XP[mtype]);
+	gainXp(p, line, Math.round(MISSION_XP[mtype] * rate));
 
 	// 2) 위험
 	if (RISKY.includes(line)) {
@@ -185,6 +193,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	if (!job && canTakeJob(p, line)) {
 		takeJob(p, line);
 		a.milestones['직업'] = hours;
+		a.days['직업'] = prm.day;
 		job = p.jobs[line];
 	}
 	if (job) {
@@ -199,6 +208,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			const r = promote(p, line) as keyof typeof RANK_REQ;
 			led.spend('자격 취득비', RANK_REQ[r].fee);
 			a.milestones[r] = hours;
+			a.days[r] = prm.day;
 		}
 		const n = p.businesses.length;
 		const marginal = BUSINESS_REVENUE * (1 - prm.bizTax) - (businessUpkeep(n + 1) - businessUpkeep(n));
@@ -206,6 +216,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			openBusiness(p, line);
 			led.spend('사업 개설', BUSINESS_OPEN_COST);
 			a.milestones['사업'] ??= hours;
+			a.days['사업'] ??= prm.day;
 		}
 	}
 }
@@ -230,6 +241,7 @@ function payBizBonus(agents: Agent[], board: Board, led: Ledger) {
 
 export function run(over: Partial<Params> = {}): Result {
 	const prm = { ...DEFAULT_PARAMS, ...over };
+	if (prm.daily) prm.day = 1;
 	const rng = new Rng(prm.seed);
 	const led = new Ledger();
 	const lines = LINES.filter((l) => l !== 'COLLECTING');
@@ -237,19 +249,27 @@ export function run(over: Partial<Params> = {}): Result {
 		p: newPlayer(`p${i}`),
 		line: rng.choice(lines),
 		milestones: {},
+		days: {},
 		income: { HOBBY: { sum: 0, n: 0 }, JOB: { sum: 0, n: 0 }, BUSINESS: { sum: 0, n: 0 } },
 		bizDue: 0
 	}));
 	const board = prm.events ? new Board(newTown(prm.seed + 1, prm.players)) : null;
-	const ticks = Math.round(prm.hours / MISSION_HOURS);
+	const daily = prm.daily;
+	if (daily) prm.bizPerMission = daily.settlementsPerDay / daily.limit;
+	const ticks = daily ? daily.days * daily.limit : Math.round(prm.hours / MISSION_HOURS);
 	for (let t = 1; t <= ticks; t++) {
+		let rate = 1;
+		if (daily) {
+			prm.day = Math.floor((t - 1) / daily.limit) + 1;
+			rate = (t - 1) % daily.limit < daily.full ? 1 : daily.overRate;
+		}
 		if (board) {
 			board.world.totalBusinesses = agents.reduce((n, a) => n + a.p.businesses.length, 0);
 			board.update();
 			resolveEvents(agents, board, led, rng);
 			if (t % MISSIONS_PER_DAY === 0) payBizBonus(agents, board, led);
 		}
-		for (const a of agents) tick(a, t, led, rng, prm, board);
+		for (const a of agents) tick(a, t, led, rng, prm, board, rate);
 	}
 	return {
 		agents,
@@ -258,6 +278,7 @@ export function run(over: Partial<Params> = {}): Result {
 		recovery: led.recovery,
 		reached: (m) => agents.filter((a) => a.milestones[m] !== undefined).length,
 		medianHours: (m) => median(agents.flatMap((a) => (a.milestones[m] !== undefined ? [a.milestones[m]!] : []))),
+		medianDays: (m) => median(agents.flatMap((a) => (a.days[m] !== undefined ? [a.days[m]!] : []))),
 		tierIncome: (t) => {
 			const b = agents.reduce((s, a) => ({ sum: s.sum + a.income[t].sum, n: s.n + a.income[t].n }), { sum: 0, n: 0 });
 			return b.n ? b.sum / b.n : NaN;

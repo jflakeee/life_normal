@@ -12,8 +12,9 @@ const ROUTES: [method: string, pattern: RegExp, command: boolean, handler: Handl
 	['GET', /^\/board$/, false, () => svc.board],
 	['GET', /^\/market$/, false, () => svc.market],
 	['GET', /^\/collection$/, false, () => svc.collection],
-	['POST', /^\/queue$/, true, (_, b) => (s) => svc.enqueue(s, String(b.template_id), Number(b.count ?? 1))],
-	['DELETE', /^\/queue\/(\d+)$/, true, (m) => (s) => svc.cancel(s, Number(m[1]))],
+	['POST', /^\/workbench\/(\d)$/, true, (m, b) => (s) => svc.setWork(s, Number(m[1]), String(b.template_id))],
+	['DELETE', /^\/workbench\/(\d)$/, true, (m) => (s) => svc.stopWork(s, Number(m[1]))],
+	['POST', /^\/workbench\/(\d)\/tap$/, true, (m) => (s) => svc.tapWork(s, Number(m[1]))],
 	['POST', /^\/board\/([\w-]+)\/accept$/, true, (m) => (s) => svc.accept(s, m[1])],
 	['POST', /^\/claims$/, true, () => svc.claim],
 	['POST', /^\/jobs\/(\w+)$/, true, (m) => (s) => svc.takeJob(s, m[1])],
@@ -49,10 +50,11 @@ export interface LocalBackendOptions {
 	seed?: string;
 	newKey?: () => string;
 	pollMs?: number;
+	tz?: () => number;
 }
 
 export function createLocalBackend(opts: LocalBackendOptions = {}): Backend & { game: LocalGame; request: typeof request } {
-	const game = new LocalGame(opts.store ?? localStore(), opts.clock, opts.seed);
+	const game = new LocalGame(opts.store ?? localStore(), opts.clock, opts.seed, opts.tz);
 	const newKey = opts.newKey ?? (() => crypto.randomUUID());
 
 	function request<T>(method: string, path: string, body?: unknown, key?: string): T {

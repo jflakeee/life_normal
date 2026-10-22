@@ -21,22 +21,23 @@ function setup(seed = 'test') {
 	const clock = { t: 1_000_000 };
 	const store = memoryStore();
 	let k = 0;
-	const be = createLocalBackend({ store, clock: () => clock.t, seed, newKey: () => `k${k++}` });
+	const be = createLocalBackend({ store, clock: () => clock.t, seed, newKey: () => `k${k++}`, tz: () => 0 });
 	const advance = (sec: number) => (clock.t += sec);
 	return { be, clock, store, advance };
 }
 
-type S = { queue: { ends_at: number; done: boolean }[]; claimable: number; money: number; skills: Record<string, { xp: number; level: number }>; pending_settlements: number; town_tick: number };
+type W = { slots: { template: string | null; pending: number; next_in: number | null; unlocked: boolean }[]; used_today: number };
+type S = { workbench: W; queue: { ends_at: number; done: boolean }[]; claimable: number; money: number; skills: Record<string, { xp: number; level: number }>; pending_settlements: number; town_tick: number };
 
 describe('local backend', () => {
-	it('runs the queue back to back and completes lazily', async () => {
-		const { be, clock, advance } = setup();
-		const r = await be.command<{ queue_ends_at: number }>('POST', '/queue', { template_id: 'parcel', count: 3 });
-		expect(r.queue_ends_at).toBe(clock.t + 3 * TICK_SECONDS);
-		advance(2 * TICK_SECONDS);
+	it('the workbench repeats a task and completes lazily', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		advance(2 * TICK_SECONDS + 5);
 		const st = await be.get<S>('/state');
 		expect(st.claimable).toBe(2);
-		expect(st.queue).toHaveLength(3);
+		expect(st.workbench.slots[0].pending).toBe(2);
+		expect(st.workbench.slots[0].next_in).toBe(TICK_SECONDS - 5);
 		const c = await be.command<{ claimed: unknown[] }>('POST', '/claims');
 		expect(c.claimed).toHaveLength(2);
 		expect((await be.get<S>('/state')).skills.TRANSPORT.xp).toBe(20);
@@ -44,7 +45,7 @@ describe('local backend', () => {
 
 	it('replays the first response for the same key', async () => {
 		const { be, advance } = setup();
-		await be.command('POST', '/queue', { template_id: 'parcel', count: 2 });
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		advance(10 * TICK_SECONDS);
 		const first = be.request('POST', '/claims', undefined, 'same');
 		const money = (await be.get<S>('/state')).money;
@@ -65,26 +66,36 @@ describe('local backend', () => {
 		expect(JSON.parse(store.raw!).player).toEqual(JSON.parse(before!).player);
 	});
 
-	it('enforces the queue limit and job rules', async () => {
+	it('enforces slot and job rules', async () => {
 		const { be } = setup();
-		await be.command('POST', '/queue', { template_id: 'parcel', count: 20 });
-		await expect(be.command('POST', '/queue', { template_id: 'parcel', count: 1 })).rejects.toMatchObject({ status: 409 });
-		await expect(be.command('POST', '/queue', { template_id: 'passenger', count: 1 })).rejects.toMatchObject({ status: 409 });
+		await expect(be.command('POST', '/workbench/1', { template_id: 'parcel' })).rejects.toMatchObject({ status: 409 }); // 잠긴 슬롯
+		await expect(be.command('POST', '/workbench/0', { template_id: 'passenger' })).rejects.toMatchObject({ status: 409 }); // 직업 없음
+		await expect(be.command('POST', '/workbench/0', { template_id: 'pest_control' })).rejects.toMatchObject({ status: 409 }); // 상시 아님
 	});
 
-	it('cancel pulls later runs forward', async () => {
-		const { be, clock } = setup();
-		const { queued } = await be.command<{ queued: number[] }>('POST', '/queue', { template_id: 'parcel', count: 3 });
-		await expect(be.command('DELETE', `/queue/${queued[0]}`)).rejects.toMatchObject({ status: 409 });
-		await be.command('DELETE', `/queue/${queued[1]}`);
-		const ends = (await be.get<S>('/state')).queue.map((r) => r.ends_at);
-		expect(ends).toEqual([clock.t + TICK_SECONDS, clock.t + 2 * TICK_SECONDS]);
+	it('tap speeds up the current task by 10s, at most 30s per task', async () => {
+		const { be } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		for (let i = 0; i < 3; i++) await be.command('POST', '/workbench/0/tap');
+		expect((await be.get<S>('/state')).workbench.slots[0].next_in).toBe(TICK_SECONDS - 30);
+		await expect(be.command('POST', '/workbench/0/tap')).rejects.toMatchObject({ status: 409 });
+	});
+
+	it('stopping keeps finished work claimable', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		advance(TICK_SECONDS);
+		await be.command('DELETE', '/workbench/0');
+		advance(5 * TICK_SECONDS);
+		const st = await be.get<S>('/state');
+		expect(st.workbench.slots[0].template).toBeNull();
+		expect(st.claimable).toBe(1);
 	});
 
 	it('keeps the ledger equal to money through risky play', async () => {
 		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'small_hunt' });
 		for (let i = 0; i < 10; i++) {
-			await be.command('POST', '/queue', { template_id: 'small_hunt', count: 20 });
 			advance(20 * TICK_SECONDS);
 			await be.command('POST', '/claims');
 		}
@@ -135,18 +146,18 @@ describe('local backend', () => {
 
 	it('hides event-only templates from the catalog', async () => {
 		const { be } = setup();
-		const cat = await be.get<{ templates: { id: string }[]; queue_limit: number }>('/catalog');
+		const cat = await be.get<{ templates: { id: string }[]; slots_max: number }>('/catalog');
 		const ids = cat.templates.map((t) => t.id);
 		expect(ids).toContain('parcel');
 		expect(ids).not.toContain('disaster_recovery');
-		expect(cat.queue_limit).toBe(20);
+		expect(cat.slots_max).toBe(3);
 	});
 
 	it('notifies finished missions and new events once', async () => {
 		const { be, advance } = setup();
 		const cursor: Record<string, unknown> = {};
 		be.game.query((s) => notifications(s, cursor)); // 구독 시작 시점
-		await be.command('POST', '/queue', { template_id: 'parcel', count: 1 });
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		advance(TICK_SECONDS);
 		be.game.query((s) => s.board.startChain(CHAINS[0].id));
 		const out = be.game.query((s) => notifications(s, cursor));
@@ -156,7 +167,7 @@ describe('local backend', () => {
 
 	it('subscribe reports online and nothing from before it started', async () => {
 		const { be, advance } = setup();
-		await be.command('POST', '/queue', { template_id: 'parcel', count: 1 });
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		advance(TICK_SECONDS);
 		const events: unknown[] = [];
 		let online = false;
@@ -168,7 +179,7 @@ describe('local backend', () => {
 
 	it('reopens a saved game and continues deterministically', async () => {
 		const a = setup('same');
-		await a.be.command('POST', '/queue', { template_id: 'small_hunt', count: 20 });
+		await a.be.command('POST', '/workbench/0', { template_id: 'small_hunt' });
 		a.advance(20 * TICK_SECONDS + 3600);
 		await a.be.command('POST', '/claims');
 		// 새로고침: 같은 저장소에서 다시 열면 같은 상태
@@ -180,7 +191,7 @@ describe('local backend', () => {
 			createLocalBackend({ store: { load: () => JSON.parse(snapshot), save() {} }, clock: () => a.clock.t + 9_000, newKey: () => 'k' });
 		const [b, c] = [fork(), fork()];
 		for (const be of [b, c]) {
-			await be.command('POST', '/queue', { template_id: 'small_hunt', count: 20 });
+			await be.command('POST', '/workbench/0', { template_id: 'small_hunt' });
 			await be.get('/board');
 		}
 		expect(b.game.data).toEqual(c.game.data);
@@ -190,7 +201,7 @@ describe('local backend', () => {
 describe('save transfer', () => {
 	it('exports and imports a save on another device', async () => {
 		const a = setup('a');
-		await a.be.command('POST', '/queue', { template_id: 'parcel', count: 5 });
+		await a.be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		a.advance(5 * TICK_SECONDS);
 		await a.be.command('POST', '/claims');
 		const file = a.be.saves!.export();
@@ -202,7 +213,7 @@ describe('save transfer', () => {
 
 	it('rejects bad files and keeps the current game', async () => {
 		const { be, store } = setup();
-		await be.command('POST', '/queue', { template_id: 'parcel', count: 1 });
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		const before = store.raw;
 		const good = JSON.parse(be.saves!.export());
 		const tampered = structuredClone(good);
@@ -217,10 +228,10 @@ describe('save transfer', () => {
 
 	it('resets to a fresh game', async () => {
 		const { be } = setup();
-		await be.command('POST', '/queue', { template_id: 'parcel', count: 3 });
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		be.saves!.reset();
 		const st = await be.get<S>('/state');
-		expect(st.queue).toHaveLength(0);
+		expect(st.workbench.slots[0].template).toBeNull();
 		expect(st.money).toBe(100);
 	});
 });
@@ -228,12 +239,11 @@ describe('save transfer', () => {
 describe('processing missions', () => {
 	it('needs the job, then pays margin plus wage', async () => {
 		const { be, advance } = setup();
-		await expect(be.command('POST', '/queue', { template_id: 'process_lumber', count: 1 })).rejects.toMatchObject({ status: 409 });
+		await expect(be.command('POST', '/workbench/0', { template_id: 'process_lumber' })).rejects.toMatchObject({ status: 409 });
 		be.game.query((s) => {
 			s.p.jobs.CONSTRUCTION = { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
 		});
-		const r = await be.command<{ reward_each: number }>('POST', '/queue', { template_id: 'process_lumber', count: 2 });
-		expect(r.reward_each).toBe(3);
+		await be.command('POST', '/workbench/0', { template_id: 'process_lumber' });
 		advance(2 * TICK_SECONDS);
 		const c = await be.command<{ claimed: { reward: number; pay: number }[] }>('POST', '/claims');
 		expect(c.claimed.map((x) => x.reward)).toEqual([3, 3]);
@@ -248,6 +258,84 @@ describe('processing missions', () => {
 		const reopened = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => 1_000_000 });
 		const m = await reopened.get<Record<string, unknown>>('/market');
 		expect(Object.keys(m)).toContain('leather_goods');
+		expect(be).toBeDefined();
+	});
+});
+
+describe('workbench (idle)', () => {
+	// 시작 시각 1,000,000초 = UTC 13:46. 하루는 새벽 4시(UTC, tz 0)에 바뀐다
+	it('keeps working offline for at most 8 hours, then pauses until the next visit', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		advance(9 * 3600); // 9시간 자리 비움 → 8시간(160건)까지만 진행, 하루 한도 120건
+		const st = await be.get<S>('/state');
+		expect(st.workbench.slots[0].pending).toBe(120);
+		expect(st.workbench.used_today).toBe(120);
+		// 8시간 시점에서 멈췄다가, 지금 접속부터 다시 흐른다 (공백 1시간은 진행으로 치지 않음)
+		expect(st.workbench.slots[0].next_in).toBe(TICK_SECONDS);
+	});
+
+	it('pays full for 80, half for the next 40, then rests', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		advance(8 * 3600);
+		const c = await be.command<{ claimed: { rate: number }[] }>('POST', '/claims');
+		const rates = c.claimed.map((x) => x.rate);
+		expect(rates.filter((r) => r === 1)).toHaveLength(80);
+		expect(rates.filter((r) => r === 0.5)).toHaveLength(40);
+		advance(TICK_SECONDS * 5); // 쉬는 중: 더 쌓이지 않는다
+		expect((await be.get<S>('/state')).claimable).toBe(0);
+		expect(audit(be.game.data)).toBe(0);
+	});
+
+	it('starts a fresh daily limit at 4am', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		advance(8 * 3600); // 21:46, 한도 도달
+		await be.command('POST', '/claims');
+		advance(8 * 3600); // 다음 날 05:46: 04:00 이후 106분만 새로 센다
+		const st = await be.get<S>('/state');
+		expect(st.workbench.used_today).toBe(Math.floor((106 * 60 - 0) / TICK_SECONDS) + 1);
+		expect(st.workbench.used_today).toBeLessThan(40);
+	});
+
+	it('opens a second slot with a job and a third with a business', async () => {
+		const { be } = setup();
+		const open = async () => (await be.get<S>('/state')).workbench.slots.filter((x) => x.unlocked).length;
+		expect(await open()).toBe(1);
+		be.game.query((s) => {
+			s.p.jobs.HUNTING = { rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
+		});
+		expect(await open()).toBe(2);
+		be.game.query((s) => s.pay('grant', 50_000, 'test'));
+		await be.command('POST', '/businesses', { line: 'HUNTING' });
+		expect(await open()).toBe(3);
+	});
+
+	it('slots share one daily limit', async () => {
+		const { be, advance } = setup();
+		be.game.query((s) => {
+			s.p.jobs.TRANSPORT = { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
+		});
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		await be.command('POST', '/workbench/1', { template_id: 'passenger' });
+		advance(8 * 3600);
+		const st = await be.get<S>('/state');
+		expect(st.workbench.slots[0].pending + st.workbench.slots[1].pending).toBe(120);
+	});
+
+	it('a v3 save keeps its queued missions and gets a workbench', async () => {
+		const { be, store, clock } = setup();
+		const d = JSON.parse(store.raw!);
+		d.version = 3;
+		delete d.workbench;
+		delete d.lastActive;
+		d.runs = [{ id: 1, template: 'parcel', source: 'queue', postingId: null, reward: 5, startedAt: clock.t - 400, endsAt: clock.t - 200 }];
+		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
+		const st = await old.get<S>('/state');
+		expect(st.workbench.slots).toHaveLength(3);
+		const c = await old.command<{ claimed: { reward: number }[] }>('POST', '/claims');
+		expect(c.claimed[0].reward).toBe(5);
 		expect(be).toBeDefined();
 	});
 });

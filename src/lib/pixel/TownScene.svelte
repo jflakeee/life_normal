@@ -16,11 +16,9 @@
 	// 화면 상태 → 장면 상태 (진행 중인 작업, 사건, 낮밤)
 	const scene = $derived<SceneState>({
 		activeLine:
-			(() => {
-				const runs = game.player?.queue ?? [];
-				const running = runs.find((r) => r.ends_at > game.now && r.ends_at - (game.catalog?.mission_seconds ?? 180) <= game.now);
-				return running ? lineOf(running.template) : undefined;
-			})() ?? null,
+			(game.boardRun ? lineOf(game.boardRun.template) : undefined) ??
+			(game.resting ? undefined : (game.slots.find((s) => s.template)?.line as Line | undefined)) ??
+			null,
 		eventLines: game.chainPostings.map((p) => p.line as Line),
 		townTick: game.player?.town_tick ?? 0
 	});

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import StampCard from '$lib/components/StampCard.svelte';
+	import Workbench from '$lib/components/Workbench.svelte';
 	import TownScene from '$lib/pixel/TownScene.svelte';
 	import { clock } from '$lib/format';
 	import type { Game } from '$lib/game.svelte';
@@ -11,9 +11,9 @@
 
 <div class="stack">
 	<TownScene {game} onpick={() => (location.hash = '#missions')} />
-	<StampCard runs={game.queueRuns} now={game.now} limit={cat.queue_limit} seconds={cat.mission_seconds} />
+	<Workbench {game} />
 	<button class="primary" disabled={game.busy || game.claimable === 0} onclick={() => game.claim()}>
-		{game.claimable ? `보상 받기 (${game.claimable}건)` : '받을 보상 없음'}
+		{game.claimable ? `한 번에 받기 (${game.claimable}건)` : '받을 보상 없음'}
 	</button>
 
 	{#if game.boardRun}

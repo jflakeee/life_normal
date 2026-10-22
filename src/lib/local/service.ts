@@ -6,18 +6,19 @@
 import { progress } from '$lib/core/collection';
 import B from '$lib/core/data/balance.json';
 import { LINE_NAME, LINES, type Line } from '$lib/core/enums';
-import { Board, CHAINS, collectDrop, fillMarket, ITEMS, newTown, priceRatio, QUEUE_LIMIT, TEMPLATES, type TownState } from '$lib/core/missions';
+import { Board, CHAINS, collectDrop, fillMarket, ITEMS, newTown, priceRatio, TEMPLATES, type MissionTemplate, type TownState } from '$lib/core/missions';
 import {
 	availableTo,
 	BUSINESS_OPEN_COST,
 	BUSINESS_REVENUE,
 	BUSINESS_TAX,
-	completeMission,
+	gainXp,
 	DEATH_P,
 	HOBBY_MEDICAL_DISCOUNT,
 	hourlyPay,
 	INJURY_P,
 	MISSION_HOURS,
+	MISSION_XP,
 	MISSIONS_PER_DAY,
 	newPlayer,
 	onDeath,
@@ -35,6 +36,7 @@ import {
 	type Player
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
+import * as wb from './workbench';
 
 type Json = Record<string, unknown>;
 
@@ -50,7 +52,7 @@ const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
 const RISKY: Line[] = ['HUNTING', 'SECURITY'];
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4; // v4: 대기열 → 작업대
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */
 export class GameError extends Error {}
@@ -84,6 +86,8 @@ export interface SaveData {
 	bizLast: number | null;
 	ledger: { totals: Record<string, number>; recent: LedgerEntry[] };
 	idem: Record<string, { response: unknown; at: number }>;
+	workbench: wb.Workbench;
+	lastActive: number; // 마지막 접속 (오프라인 진행 상한 기준)
 }
 
 export function newSave(now: number, seed: string): SaveData {
@@ -99,7 +103,9 @@ export function newSave(now: number, seed: string): SaveData {
 		missionsDone: 0,
 		bizLast: null,
 		ledger: { totals: { grant: START_MONEY }, recent: [] },
-		idem: {}
+		idem: {},
+		workbench: wb.newWorkbench(now),
+		lastActive: now
 	};
 	return s;
 }
@@ -110,12 +116,15 @@ export class Session {
 
 	constructor(
 		readonly d: SaveData,
-		readonly now: number
+		readonly now: number,
+		readonly tz = 0 // 기기 시간대 (Date#getTimezoneOffset, 분)
 	) {
 		this.board = new Board(d.town);
 		const n = Math.floor((now - d.townLastTick) / TICK_SECONDS);
 		for (let i = 0; i < Math.min(n, MAX_CATCHUP_TICKS); i++) this.board.update();
 		d.townLastTick += n * TICK_SECONDS;
+		wb.advance(d.workbench, wb.unlockedSlots(d.player), now, d.lastActive, TICK_SECONDS, tz);
+		d.lastActive = now;
 	}
 
 	get p(): Player {
@@ -200,7 +209,8 @@ export function state(s: Session): Json {
 		businesses: p.businesses,
 		pending_settlements: pendingSettlements(s),
 		queue: runs,
-		claimable: runs.filter((r) => r.done).length,
+		workbench: workbenchState(s),
+		claimable: runs.filter((r) => r.done).length + s.d.workbench.slots.reduce((n, x) => n + x.pending.length, 0),
 		town_tick: s.board.world.tick
 	};
 }
@@ -256,7 +266,8 @@ export function catalog(): Json {
 			})),
 		shop: SHOP,
 		repair_rate: REPAIR_RATE,
-		queue_limit: QUEUE_LIMIT,
+		slots_max: wb.SLOTS_MAX,
+		daily_limit: wb.DAILY_LIMIT,
 		mission_seconds: TICK_SECONDS,
 		business: { open_cost: BUSINESS_OPEN_COST, revenue: BUSINESS_REVENUE, tax: BUSINESS_TAX, settlements_per_day: SETTLE_CAP }
 	};
@@ -266,10 +277,13 @@ export function catalog(): Json {
 export function notifications(s: Session, cursor: Json): Json[] {
 	const events: Json[] = [];
 	const since = (cursor.checkedAt as number) ?? s.now;
-	const done = s.d.runs.filter((r) => r.endsAt > since && r.endsAt <= s.now).length;
+	const pending = s.d.workbench.slots.flatMap((x) => x.pending);
+	const done =
+		s.d.runs.filter((r) => r.endsAt > since && r.endsAt <= s.now).length +
+		pending.filter((w) => w.at > since && w.at <= s.now).length;
 	if (done) {
-		const running = s.d.runs.filter((r) => r.endsAt > s.now).length;
-		events.push({ type: 'mission.done', count: done, queue_empty: running === 0 });
+		const resting = wb.usedToday(s.d.workbench, s.now, s.tz) >= wb.DAILY_LIMIT;
+		events.push({ type: 'mission.done', count: done, resting });
 	}
 	const seen = (cursor.logTotal as number) ?? s.d.town.logTotal;
 	const fresh = s.d.town.logTotal - seen;
@@ -286,37 +300,58 @@ export function notifications(s: Session, cursor: Json): Json[] {
 }
 
 // ── 임무 ─────────────────────────────────────────────
-export function enqueue(s: Session, templateId: string, count: number): Json {
-	const t = TEMPLATES[templateId];
-	if (!t || t.type !== 'ROUTINE') throw new GameError('대기열에는 상시 임무만 넣을 수 있습니다');
-	if (!Number.isInteger(count) || count < 1 || count > QUEUE_LIMIT) throw new GameError('건수는 1~20');
-	const probe = { id: 'probe', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear };
-	if (!availableTo(probe, s.p)) throw new GameError('조건 미충족 (직업 또는 장비)');
-	const queued = s.d.runs.filter((r) => r.source === 'queue');
-	if (queued.length + count > QUEUE_LIMIT) throw new GameError(`대기열은 최대 ${QUEUE_LIMIT}건 (받지 않은 완료 포함)`);
-	let start = Math.max(s.now, ...queued.map((r) => r.endsAt));
-	const reward = s.board.rewardFor(templateId);
-	const ids: number[] = [];
-	for (let i = 0; i < count; i++) {
-		const id = s.d.nextRunId++;
-		s.d.runs.push({ id, template: templateId, source: 'queue', postingId: null, reward, startedAt: start, endsAt: start + TICK_SECONDS });
-		ids.push(id);
-		start += TICK_SECONDS;
-	}
-	return { queued: ids, reward_each: reward, queue_ends_at: start };
+export function workbenchState(s: Session): Json {
+	const w = s.d.workbench;
+	const open = wb.unlockedSlots(s.p);
+	return {
+		slots: w.slots.map((x, i) => ({
+			index: i,
+			unlocked: i < open,
+			template: x.template,
+			name: x.template ? TEMPLATES[x.template].name : null,
+			line: x.template ? TEMPLATES[x.template].line : null,
+			pending: x.pending.length,
+			next_in: x.template ? TICK_SECONDS - x.progress : null,
+			tap_left: x.template ? wb.TAP_MAX_PER_RUN - x.tapUsed : 0
+		})),
+		used_today: wb.usedToday(w, s.now, s.tz),
+		limit: wb.DAILY_LIMIT,
+		full: wb.DAILY_FULL,
+		over_rate: wb.OVER_RATE,
+		resets_at: wb.nextDayStart(s.now, s.tz),
+		offline_cap_hours: wb.OFFLINE_CAP / 3600
+	};
 }
 
-export function cancel(s: Session, runId: number): Json {
-	const r = s.d.runs.find((x) => x.id === runId);
-	if (!r || r.source !== 'queue' || r.startedAt <= s.now) throw new GameError('시작 전인 대기열 임무만 취소할 수 있습니다');
-	s.d.runs = s.d.runs.filter((x) => x.id !== runId);
-	for (const x of s.d.runs) {
-		if (x.source === 'queue' && x.startedAt > r.startedAt) {
-			x.startedAt -= TICK_SECONDS; // 뒤의 임무를 앞으로 당긴다
-			x.endsAt -= TICK_SECONDS;
-		}
-	}
-	return { cancelled: runId };
+function slotAt(s: Session, index: number): wb.Slot {
+	if (!Number.isInteger(index) || index < 0 || index >= wb.unlockedSlots(s.p))
+		throw new GameError('열리지 않은 작업대입니다');
+	return s.d.workbench.slots[index];
+}
+
+/** 작업대에 상시 임무를 올린다 (이미 있던 일은 바뀐다. 끝난 작업은 그대로 받을 수 있다) */
+export function setWork(s: Session, index: number, templateId: string): Json {
+	const slot = slotAt(s, index);
+	const t = TEMPLATES[templateId];
+	if (!t || t.type !== 'ROUTINE') throw new GameError('작업대에는 상시 임무만 올릴 수 있습니다');
+	const probe = { id: 'probe', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear };
+	if (!availableTo(probe, s.p)) throw new GameError('조건 미충족 (직업 또는 장비)');
+	Object.assign(slot, { template: templateId, progress: 0, lastTick: s.now, tapUsed: 0 });
+	return { slot: index, template: templateId, name: t.name };
+}
+
+export function stopWork(s: Session, index: number): Json {
+	const slot = slotAt(s, index);
+	Object.assign(slot, { template: null, progress: 0, tapUsed: 0 });
+	return { slot: index, stopped: true };
+}
+
+export function tapWork(s: Session, index: number): Json {
+	const slot = slotAt(s, index);
+	const r = wb.tap(slot, s.d.workbench, s.now, TICK_SECONDS, s.tz);
+	if (r === 'empty') throw new GameError('비어 있는 작업대입니다');
+	if (r === 'limit') throw new GameError('이번 작업은 더 당길 수 없어요');
+	return { slot: index, next_in: TICK_SECONDS - slot.progress, tap_left: wb.TAP_MAX_PER_RUN - slot.tapUsed };
 }
 
 export function accept(s: Session, postingId: string): Json {
@@ -327,44 +362,74 @@ export function accept(s: Session, postingId: string): Json {
 	return { run_id: id, ends_at: s.now + TICK_SECONDS };
 }
 
+/** 끝난 작업 한 건을 정산한다: 보상, 경험치, 도감, 세금·급여, 위험, 수리 */
+function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { reward: number; rate: number } | { postingId: string }): Json {
+	const p = s.p;
+	const before = p.money;
+	let drop;
+	let rate = 1;
+	if ('postingId' in how) {
+		drop = s.board.complete(how.postingId, p).drop;
+	} else {
+		rate = how.rate;
+		p.money += how.reward;
+		gainXp(p, t.line, Math.round(MISSION_XP[t.type] * rate));
+		if (t.tier === 'JOB') {
+			const job = p.jobs[t.line]!;
+			job.jobMissions++;
+			if (t.type === 'REQUEST') job.requestsDone++;
+		}
+		drop = collectDrop(rng, p, t);
+	}
+	const sold = drop?.soldFor ?? 0;
+	const gained = p.money - before - sold; // 의뢰 빠른 완료 보너스 포함
+	s.ledger('mission_reward', gained, ref);
+	s.ledger('collection_sale', sold, ref);
+	const item: Json = { name: t.name, reward: gained, rate };
+	if (t.tier === 'HOBBY') s.pay('sales_tax', -gained * SALES_TAX, ref);
+	else if (t.tier === 'JOB' && p.jobs[t.line]) {
+		const pay = hourlyPay(p.jobs[t.line]!) * MISSION_HOURS * rate;
+		s.pay('job_pay', pay, ref);
+		item.pay = Math.round(pay * 100) / 100;
+	}
+	if (drop) item.drop = { name: drop.item.name, registered: drop.registered, sold_for: sold };
+	Object.assign(item, risk(s, rng, t.line, t.tier === 'HOBBY', ref));
+	s.d.missionsDone++;
+	if (s.d.missionsDone % MISSIONS_PER_DAY === 0 && p.equipment.length)
+		s.pay('repair', -Math.max(...p.equipment.map(repairCost)), ref);
+	return item;
+}
+
 export function claim(s: Session): Json {
 	const p = s.p;
 	const results: Json[] = [];
+	// 작업대: 끝난 순서대로
+	const work = s.d.workbench.slots
+		.flatMap((slot, i) => slot.pending.map((w) => ({ ...w, slot: i })))
+		.sort((a, b) => a.at - b.at || a.slot - b.slot);
+	for (const w of work) {
+		const t = TEMPLATES[w.template];
+		const ref = `work:${w.slot}:${w.at}`;
+		const reward = Math.round(s.board.rewardFor(w.template) * w.rate);
+		results.push(settle(s, t, ref, new Rng(`${p.id}:${ref}`), { reward, rate: w.rate }));
+	}
+	for (const slot of s.d.workbench.slots) slot.pending = [];
+	// 의뢰·돌발 (그리고 v3 세이브에서 넘어온 대기열 임무)
 	for (const r of openRuns(s)) {
 		if (r.endsAt > s.now) continue;
 		s.d.runs = s.d.runs.filter((x) => x.id !== r.id);
 		const t = TEMPLATES[r.template];
 		const ref = `run:${r.id}`;
 		const rng = new Rng(`${p.id}:${r.id}`);
-		const before = p.money;
-		let drop;
 		if (r.source === 'board') {
 			if (!r.postingId || !s.d.town.postings[r.postingId]) {
 				results.push({ run: r.id, name: t.name, expired: true });
 				continue;
 			}
-			drop = s.board.complete(r.postingId, p).drop;
+			results.push({ run: r.id, ...settle(s, t, ref, rng, { postingId: r.postingId }) });
 		} else {
-			completeMission({ id: ref, line: t.line, tier: t.tier, type: t.type, reward: r.reward, minRank: t.minRank, gear: t.gear }, p);
-			drop = collectDrop(rng, p, t);
+			results.push({ run: r.id, ...settle(s, t, ref, rng, { reward: r.reward, rate: 1 }) });
 		}
-		const sold = drop?.soldFor ?? 0;
-		const gained = p.money - before - sold; // 의뢰 빠른 완료 보너스 포함
-		s.ledger('mission_reward', gained, ref);
-		s.ledger('collection_sale', sold, ref);
-		const item: Json = { run: r.id, name: t.name, reward: gained };
-		if (t.tier === 'HOBBY') s.pay('sales_tax', -gained * SALES_TAX, ref);
-		else if (t.tier === 'JOB') {
-			const pay = hourlyPay(p.jobs[t.line]!) * MISSION_HOURS;
-			s.pay('job_pay', pay, ref);
-			item.pay = Math.round(pay * 100) / 100;
-		}
-		if (drop) item.drop = { name: drop.item.name, registered: drop.registered, sold_for: sold };
-		Object.assign(item, risk(s, rng, t.line, t.tier === 'HOBBY', ref));
-		s.d.missionsDone++;
-		if (s.d.missionsDone % MISSIONS_PER_DAY === 0 && p.equipment.length)
-			s.pay('repair', -Math.max(...p.equipment.map(repairCost)), ref);
-		results.push(item);
 	}
 	p.reputation = Math.min(100, Object.values(p.jobs).reduce((n, j) => n + j!.requestsDone, 0));
 	return { claimed: results, money: Math.round(p.money * 100) / 100 };
@@ -462,13 +527,24 @@ export function parseSave(raw: string): SaveData {
 	} catch {
 		throw new GameError('세이브 파일을 읽을 수 없습니다');
 	}
-	const d = doc?.data;
+	const d = doc?.data && migrateSave(doc.data);
 	if (doc?.kind !== SAVE_KIND || !d) throw new GameError('동네 임무 세이브 파일이 아닙니다');
 	if (d.version !== SAVE_VERSION) throw new GameError(`지원하지 않는 세이브 버전입니다 (v${d.version})`);
 	const shape = d.player?.skills && d.town?.world && Array.isArray(d.runs) && d.ledger?.totals && Array.isArray(d.town?.rng);
 	if (!shape) throw new GameError('세이브 파일이 손상되었습니다');
 	if (audit(d) !== 0) throw new GameError('세이브의 돈 기록이 맞지 않습니다');
 	return normalizeSave(d);
+}
+
+/** 이전 버전 세이브를 지금 버전으로 바꾼다 (진행을 잃지 않게) */
+export function migrateSave(d: SaveData): SaveData {
+	if (d.version === 3) {
+		// v3의 대기열 임무는 runs에 그대로 남아 예전처럼 받을 수 있다
+		d.workbench = wb.newWorkbench(d.townLastTick);
+		d.lastActive = d.townLastTick;
+		d.version = 4;
+	}
+	return d;
 }
 
 /** 이전 세이브에 없는 새 데이터(시장 품목 등)를 채운다 */
@@ -489,9 +565,12 @@ export class LocalGame {
 	constructor(
 		private store: Store,
 		private clock: () => number = () => Date.now() / 1000,
-		seed: string = Math.random().toString(36).slice(2)
+		seed: string = Math.random().toString(36).slice(2),
+		/** 기기 시간대 (하루 한도의 새벽 4시 기준). 테스트에서는 고정값을 넣는다 */
+		private tz: () => number = () => new Date().getTimezoneOffset()
 	) {
 		const saved = store.load();
+		if (saved) migrateSave(saved);
 		this.d = saved && saved.version === SAVE_VERSION ? normalizeSave(saved) : newSave(this.clock(), seed);
 		this.store.save(this.d);
 	}
@@ -516,7 +595,7 @@ export class LocalGame {
 
 	/** 조회도 마을 틱을 진행시키므로 사본에서 실행한 뒤 반영한다 */
 	query<T>(fn: (s: Session) => T): T {
-		const s = new Session(structuredClone(this.d), this.clock());
+		const s = new Session(structuredClone(this.d), this.clock(), this.tz());
 		const out = fn(s);
 		this.commit(s);
 		return out;
@@ -526,7 +605,7 @@ export class LocalGame {
 	command<T>(key: string, fn: (s: Session) => T): [T, boolean] {
 		const hit = this.d.idem[key];
 		if (hit) return [hit.response as T, true];
-		const s = new Session(structuredClone(this.d), this.clock());
+		const s = new Session(structuredClone(this.d), this.clock(), this.tz());
 		const out = fn(s);
 		s.d.idem[key] = { response: structuredClone(out), at: s.now };
 		const keys = Object.entries(s.d.idem)

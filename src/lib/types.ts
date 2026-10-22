@@ -14,7 +14,8 @@ export interface Catalog {
 	templates: Template[];
 	shop: Record<string, number>;
 	repair_rate: number;
-	queue_limit: number;
+	slots_max: number;
+	daily_limit: number;
 	mission_seconds: number;
 	business: { open_cost: number; revenue: number; tax: number; settlements_per_day: number };
 }
@@ -39,6 +40,7 @@ export interface PlayerState {
 	businesses: string[];
 	pending_settlements: number;
 	queue: Run[];
+	workbench: WorkbenchState;
 	claimable: number;
 	town_tick: number;
 }
@@ -62,3 +64,24 @@ export interface Board {
 
 export type Market = Record<string, { name: string; base: number; price: number; from: string | null }>;
 export type Collection = Record<string, { owned: number; total: number; xp_mult: number }>;
+
+export interface WorkSlot {
+	index: number;
+	unlocked: boolean;
+	template: string | null;
+	name: string | null;
+	line: string | null;
+	pending: number;
+	next_in: number | null; // 지금 건이 끝나기까지 남은 초
+	tap_left: number;
+}
+
+export interface WorkbenchState {
+	slots: WorkSlot[];
+	used_today: number;
+	limit: number;
+	full: number;
+	over_rate: number;
+	resets_at: number;
+	offline_cap_hours: number;
+}

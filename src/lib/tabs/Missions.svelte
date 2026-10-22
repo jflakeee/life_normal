@@ -4,13 +4,10 @@
 
 	let { game }: { game: Game } = $props();
 	let filter = $state<'ROUTINE' | 'REQUEST' | 'EMERGENCY'>('ROUTINE');
-	let picked = $state<string | null>(null);
 
 	const lines = $derived(game.catalog!.lines);
-	const free = $derived(game.catalog!.queue_limit - game.queueRuns.length);
 	const postings = $derived(game.board.postings.filter((x) => !x.chain && x.type === filter));
 	const routines = $derived(game.routineTemplates);
-	const fillTarget = $derived(picked ?? routines[0]?.id ?? null);
 </script>
 
 <div class="stack">
@@ -37,25 +34,35 @@
 	</div>
 
 	{#if filter === 'ROUTINE'}
-		<p class="quiet num">대기열 {game.queueRuns.length}/{game.catalog!.queue_limit} · 한 건에 3분</p>
+		<p class="quiet">
+			작업대:
+			{game.slots.map((s) => `${s.index + 1} ${s.name ?? '비어 있음'}`).join(', ')}
+		</p>
 		<ul class="list">
 			{#each routines as t (t.id)}
-				<li class="panel row" class:picked={fillTarget === t.id}>
-					<button class="pick" onclick={() => (picked = t.id)} aria-pressed={fillTarget === t.id}>
+				<li class="panel row">
+					<div>
 						<h2>{t.name}</h2>
 						<p class="quiet">
 							{lines[t.line]}{t.tier === 'JOB' ? ' 직업' : ''}{t.process ? ` · ${t.process.input} → ${t.process.output}` : ''}
 						</p>
-					</button>
-					<button class="secondary" disabled={free <= 0 || game.busy} onclick={() => game.queue(t.id)}>+ 예약</button>
+					</div>
+					<div class="put">
+						{#each game.slots as s (s.index)}
+							<button
+								class="secondary"
+								class:on={s.template === t.id}
+								disabled={game.busy || s.template === t.id}
+								aria-label="작업대 {s.index + 1}에 올리기"
+								onclick={() => game.setWork(s.index, t.id)}
+							>
+								{game.slots.length === 1 ? (s.template === t.id ? '진행 중' : '올리기') : s.index + 1}
+							</button>
+						{/each}
+					</div>
 				</li>
 			{/each}
 		</ul>
-		{#if fillTarget}
-			<button class="primary fill" disabled={free <= 0 || game.busy} onclick={() => game.fillQueue(fillTarget)}>
-				{free > 0 ? `남은 ${free}칸 채우기` : '대기열이 가득 찼어요'}
-			</button>
-		{/if}
 	{:else}
 		{#if game.boardRun}
 			<p class="quiet num">수락한 임무: {game.boardRun.name} · {clock(game.boardRun.ends_at - game.now)}</p>
@@ -99,9 +106,6 @@
 		color: var(--action);
 		font-weight: 700;
 	}
-	.list:has(+ .fill) {
-		padding-bottom: 60px; /* 떠 있는 채우기 버튼이 마지막 항목을 가리지 않게 */
-	}
 	.list {
 		list-style: none;
 		margin: 0;
@@ -109,17 +113,18 @@
 		display: grid;
 		gap: 8px;
 	}
-	.pick {
-		flex: 1;
-		text-align: left;
-		min-height: 0;
+	.put {
+		display: flex;
+		gap: 6px;
+		flex: none;
 	}
-	.picked {
-		border-color: var(--action);
+	.put button {
+		min-width: 44px;
 	}
-	.fill {
-		position: sticky;
-		bottom: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px) + 12px);
+	.put button.on {
+		background: var(--action);
+		color: var(--action-ink);
+		opacity: 1;
 	}
 	.empty {
 		padding: 24px 4px;

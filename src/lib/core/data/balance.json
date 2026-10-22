@@ -121,5 +121,15 @@
   },
   "xp_per_entry": 0.02,
   "xp_line_complete": 0.1
+ },
+ "idle": {
+  "offline_cap_hours": 8,
+  "daily_limit": 120,
+  "daily_full": 80,
+  "over_rate": 0.5,
+  "day_start_hour": 4,
+  "tap_seconds": 10,
+  "tap_max_per_run": 30,
+  "slots_max": 3
  }
 }

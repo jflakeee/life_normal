@@ -4,7 +4,7 @@ import type { Board, Catalog, Collection, Market, PlayerState, Template } from '
 
 type GameEvent = ServerEvent &
 	(
-	| { type: 'mission.done'; count: number; queue_empty: boolean }
+	| { type: 'mission.done'; count: number; resting: boolean }
 	| { type: 'event.started' | 'event.step'; text: string }
 	| { type: 'market.changed' }
 	| { type: 'settlement.ready' });
@@ -64,8 +64,13 @@ export class Game {
 	}
 
 	// ── 파생 값 ───────────────────────────────────────
-	get queueRuns() {
-		return (this.player?.queue ?? []).filter((r) => r.source === 'queue');
+	get slots() {
+		return this.player?.workbench.slots.filter((s) => s.unlocked) ?? [];
+	}
+
+	get resting(): boolean {
+		const w = this.player?.workbench;
+		return !!w && w.used_today >= w.limit;
 	}
 
 	get boardRun() {
@@ -73,7 +78,8 @@ export class Game {
 	}
 
 	get claimable(): number {
-		return (this.player?.queue ?? []).filter((r) => r.ends_at <= this.now).length;
+		const runs = (this.player?.queue ?? []).filter((r) => r.ends_at <= this.now).length;
+		return runs + this.slots.reduce((n, s) => n + s.pending, 0);
 	}
 
 	get chainPostings() {
@@ -108,19 +114,23 @@ export class Game {
 		}
 	}
 
-	queue(templateId: string, count = 1) {
+	setWork(slot: number, templateId: string) {
 		const name = this.catalog?.templates.find((t) => t.id === templateId)?.name ?? '임무';
-		return this.run(() => this.api.command('POST', '/queue', { template_id: templateId, count }), `${name} ${count}건 예약`);
+		return this.run(() => this.api.command('POST', `/workbench/${slot}`, { template_id: templateId }), `작업대 ${slot + 1}에 ${name}`);
 	}
 
-	fillQueue(templateId: string) {
-		const free = (this.catalog?.queue_limit ?? 20) - this.queueRuns.length;
-		if (free <= 0) return this.say('대기열이 가득 찼습니다. 완료된 보상을 먼저 받으세요');
-		return this.queue(templateId, free);
+	stopWork(slot: number) {
+		return this.run(() => this.api.command('DELETE', `/workbench/${slot}`), `작업대 ${slot + 1}을 비웠어요`);
 	}
 
-	cancel(runId: number) {
-		return this.run(() => this.api.command('DELETE', `/queue/${runId}`), '예약 취소');
+	/** 탭 가속: 조용히 처리하고 실패만 알린다 */
+	async tapWork(slot: number) {
+		try {
+			await this.api.command('POST', `/workbench/${slot}/tap`);
+		} catch (e) {
+			if (e instanceof ApiError) this.say(e.message);
+		}
+		await this.refresh().catch(() => {});
 	}
 
 	accept(postingId: string) {
@@ -202,7 +212,7 @@ export class Game {
 
 	// ── 알림 ─────────────────────────────────────────
 	private onEvent(e: GameEvent) {
-		if (e.type === 'mission.done') this.say(e.queue_empty ? '대기열 임무를 모두 마쳤어요' : `임무 ${e.count}건 완료`);
+		if (e.type === 'mission.done') this.say(e.resting ? `임무 ${e.count}건 완료 · 오늘 한도에 닿아 쉬어요` : `임무 ${e.count}건 완료`);
 		else if (e.type === 'event.started' || e.type === 'event.step') this.say(e.text);
 		else if (e.type === 'settlement.ready') this.say('사업 정산이 하루치 쌓였어요');
 		void this.refresh();
