@@ -48,3 +48,25 @@ test('하위 경로에서 앱 파일과 매니페스트가 열린다', async ({ 
 	await page.waitForSelector('nav');
 	expect(errors).toEqual([]);
 });
+
+test('세이브를 내보내고, 처음부터 다시 한 뒤 가져오면 진행이 돌아온다', async ({ page }) => {
+	page.on('dialog', (d) => d.accept());
+	await page.goto('./#missions');
+	const parcel = page.getByRole('listitem').filter({ hasText: '소포 배달' });
+	await parcel.getByRole('button', { name: '+ 예약' }).click();
+	await expect(page.getByText('대기열 1/20')).toBeVisible();
+
+	await page.getByRole('button', { name: '나' }).click();
+	const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: '내보내기' }).click()]);
+	const file = await download.path();
+
+	await page.getByRole('button', { name: '처음부터 다시' }).click();
+	await page.getByRole('button', { name: '임무' }).click();
+	await expect(page.getByText('대기열 0/20')).toBeVisible();
+
+	await page.getByRole('button', { name: '나' }).click();
+	await page.locator('input[type=file]').setInputFiles(file);
+	await expect(page.getByRole('status')).toHaveText('세이브를 불러왔어요');
+	await page.getByRole('button', { name: '임무' }).click();
+	await expect(page.getByText('대기열 1/20')).toBeVisible();
+});

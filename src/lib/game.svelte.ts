@@ -162,6 +162,38 @@ export class Game {
 		});
 	}
 
+	// ── 세이브 이동 ───────────────────────────────────
+	get canTransfer(): boolean {
+		return !!this.api.saves;
+	}
+
+	exportSave(): void {
+		const raw = this.api.saves!.export();
+		const day = new Date().toISOString().slice(0, 10);
+		const a = document.createElement('a');
+		a.href = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+		a.download = `life_normal-${day}.json`;
+		a.click();
+		setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+		this.say('세이브 파일을 저장했어요');
+	}
+
+	async importSave(file: File): Promise<void> {
+		try {
+			this.api.saves!.import(await file.text());
+			await this.refresh();
+			this.say('세이브를 불러왔어요');
+		} catch (e) {
+			this.say(e instanceof ApiError ? e.message : '세이브를 불러오지 못했어요');
+		}
+	}
+
+	async resetSave(): Promise<void> {
+		this.api.saves!.reset();
+		await this.refresh();
+		this.say('처음부터 시작합니다');
+	}
+
 	say(msg: string) {
 		this.toast = msg;
 		clearTimeout(this.toastTimer);

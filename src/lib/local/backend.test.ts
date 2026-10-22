@@ -186,3 +186,41 @@ describe('local backend', () => {
 		expect(b.game.data).toEqual(c.game.data);
 	});
 });
+
+describe('save transfer', () => {
+	it('exports and imports a save on another device', async () => {
+		const a = setup('a');
+		await a.be.command('POST', '/queue', { template_id: 'parcel', count: 5 });
+		a.advance(5 * TICK_SECONDS);
+		await a.be.command('POST', '/claims');
+		const file = a.be.saves!.export();
+		const b = setup('b');
+		b.be.saves!.import(file);
+		expect(b.be.game.data).toEqual(a.be.game.data);
+		expect(JSON.parse(b.store.raw!)).toEqual(a.be.game.data); // 가져온 세이브가 저장소에도 기록된다
+	});
+
+	it('rejects bad files and keeps the current game', async () => {
+		const { be, store } = setup();
+		await be.command('POST', '/queue', { template_id: 'parcel', count: 1 });
+		const before = store.raw;
+		const good = JSON.parse(be.saves!.export());
+		const tampered = structuredClone(good);
+		tampered.data.player.money += 99_999; // ledger와 어긋남
+		const old = structuredClone(good);
+		old.data.version = 2;
+		for (const raw of ['not json', '{"kind":"other"}', JSON.stringify(old), JSON.stringify(tampered)]) {
+			expect(() => be.saves!.import(raw)).toThrowError(ApiError);
+		}
+		expect(store.raw).toBe(before);
+	});
+
+	it('resets to a fresh game', async () => {
+		const { be } = setup();
+		await be.command('POST', '/queue', { template_id: 'parcel', count: 3 });
+		be.saves!.reset();
+		const st = await be.get<S>('/state');
+		expect(st.queue).toHaveLength(0);
+		expect(st.money).toBe(100);
+	});
+});

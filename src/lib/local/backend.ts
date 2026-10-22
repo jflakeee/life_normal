@@ -2,7 +2,7 @@
  *  나중에 멀티플레이 서버를 붙여도 클라이언트는 같은 Backend 인터페이스를 쓴다. */
 import { ApiError, type Backend, type ServerEvent } from '$lib/api';
 import * as svc from './service';
-import { GameError, LocalGame, type SaveData, type Session, type Store } from './service';
+import { exportSave, GameError, LocalGame, parseSave, type SaveData, type Session, type Store } from './service';
 
 type Handler = (m: RegExpMatchArray, body: Record<string, unknown>) => (s: Session) => unknown;
 
@@ -83,6 +83,18 @@ export function createLocalBackend(opts: LocalBackendOptions = {}): Backend & { 
 		},
 		async command<T>(method: 'POST' | 'DELETE', path: string, body?: unknown) {
 			return request<T>(method, path, body, newKey());
+		},
+		saves: {
+			export: () => exportSave(game.data),
+			import(raw: string) {
+				try {
+					game.replace(parseSave(raw));
+				} catch (e) {
+					if (e instanceof GameError) throw new ApiError(422, e.message);
+					throw e;
+				}
+			},
+			reset: () => game.reset()
 		},
 		subscribe(onEvent: (e: ServerEvent) => void, onStatus: (online: boolean) => void) {
 			const cursor: Record<string, unknown> = {};

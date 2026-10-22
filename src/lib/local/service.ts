@@ -438,6 +438,30 @@ export function audit(d: SaveData): number {
 	return Math.abs(sum - d.player.money) < 1e-6 ? 0 : d.player.money - sum;
 }
 
+// ── 세이브 이동 ──────────────────────────────────────
+const SAVE_KIND = 'life_normal.save';
+
+export function exportSave(d: SaveData): string {
+	return JSON.stringify({ kind: SAVE_KIND, exportedAt: new Date().toISOString(), data: d });
+}
+
+/** 가져올 세이브를 검사한다. 문제가 있으면 GameError, 정상이면 SaveData */
+export function parseSave(raw: string): SaveData {
+	let doc: { kind?: string; data?: SaveData };
+	try {
+		doc = JSON.parse(raw);
+	} catch {
+		throw new GameError('세이브 파일을 읽을 수 없습니다');
+	}
+	const d = doc?.data;
+	if (doc?.kind !== SAVE_KIND || !d) throw new GameError('동네 임무 세이브 파일이 아닙니다');
+	if (d.version !== SAVE_VERSION) throw new GameError(`지원하지 않는 세이브 버전입니다 (v${d.version})`);
+	const shape = d.player?.skills && d.town?.world && Array.isArray(d.runs) && d.ledger?.totals && Array.isArray(d.town?.rng);
+	if (!shape) throw new GameError('세이브 파일이 손상되었습니다');
+	if (audit(d) !== 0) throw new GameError('세이브의 돈 기록이 맞지 않습니다');
+	return d;
+}
+
 // ── 실행 틀 ──────────────────────────────────────────
 export interface Store {
 	load(): SaveData | null;
@@ -463,6 +487,16 @@ export class LocalGame {
 
 	get data(): SaveData {
 		return this.d;
+	}
+
+	/** 검사를 통과한 세이브로 바꾼다. 실패하면 지금 진행은 그대로 */
+	replace(d: SaveData): void {
+		this.d = structuredClone(d);
+		this.store.save(this.d);
+	}
+
+	reset(seed: string = Math.random().toString(36).slice(2)): void {
+		this.replace(newSave(this.clock(), seed));
 	}
 
 	/** 조회도 마을 틱을 진행시키므로 사본에서 실행한 뒤 반영한다 */
