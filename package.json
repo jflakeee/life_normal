@@ -1,0 +1,29 @@
+{
+	"name": "life-normal",
+	"private": true,
+	"version": "0.3.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"test": "vitest run",
+		"sim": "vitest run src/lib/sim --reporter=verbose",
+		"size": "node scripts/check-size.mjs",
+		"e2e": "playwright test"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.56",
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.70.3",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"fast-check": "^4.10.2",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.7.7",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.5",
+		"vitest": "^5.0.5"
+	},
+	"description": "동네 임무: 브라우저에서 도는 일상 임무 게임"
+}

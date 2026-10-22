@@ -1,0 +1,154 @@
+{
+ "entry": [
+  {
+   "id": "old_stamp",
+   "name": "옛 우표",
+   "line": "TRANSPORT",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "old_map",
+   "name": "오래된 지도",
+   "line": "TRANSPORT",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "memorial_ticket",
+   "name": "기념 승차권",
+   "line": "TRANSPORT",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "brass_compass",
+   "name": "골동 나침반",
+   "line": "TRANSPORT",
+   "rarity": "RARE"
+  },
+  {
+   "id": "gold_envelope",
+   "name": "황금 편지봉투",
+   "line": "TRANSPORT",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "antler_piece",
+   "name": "사슴뿔 조각",
+   "line": "HUNTING",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "feather",
+   "name": "깃털 표본",
+   "line": "HUNTING",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "beast_fang",
+   "name": "맹수 이빨",
+   "line": "HUNTING",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "white_fox_fur",
+   "name": "흰 여우 털",
+   "line": "HUNTING",
+   "rarity": "RARE"
+  },
+  {
+   "id": "fossil_track",
+   "name": "화석 발자국",
+   "line": "HUNTING",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "ore_sample",
+   "name": "광석 표본",
+   "line": "CONSTRUCTION",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "brick_seal",
+   "name": "옛 벽돌 인장",
+   "line": "CONSTRUCTION",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "marble_chip",
+   "name": "대리석 조각",
+   "line": "CONSTRUCTION",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "crystal",
+   "name": "수정 원석",
+   "line": "CONSTRUCTION",
+   "rarity": "RARE"
+  },
+  {
+   "id": "ancient_base",
+   "name": "고대 주춧돌",
+   "line": "CONSTRUCTION",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "pressed_herb",
+   "name": "말린 약초 표본",
+   "line": "MEDICAL",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "old_vial",
+   "name": "옛 약병",
+   "line": "MEDICAL",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "mushroom",
+   "name": "희귀 버섯 표본",
+   "line": "MEDICAL",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "wild_ginseng",
+   "name": "산삼 표본",
+   "line": "MEDICAL",
+   "rarity": "RARE"
+  },
+  {
+   "id": "medical_scroll",
+   "name": "고서 의서 한 장",
+   "line": "MEDICAL",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "old_badge",
+   "name": "옛 배지",
+   "line": "SECURITY",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "wanted_poster",
+   "name": "수배 전단",
+   "line": "SECURITY",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "rusty_cuffs",
+   "name": "녹슨 수갑",
+   "line": "SECURITY",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "whistle",
+   "name": "경비 호루라기",
+   "line": "SECURITY",
+   "rarity": "RARE"
+  },
+  {
+   "id": "vault_key",
+   "name": "금고 열쇠",
+   "line": "SECURITY",
+   "rarity": "LEGENDARY"
+  }
+ ]
+}

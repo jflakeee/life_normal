@@ -1,0 +1,365 @@
+{
+ "template": [
+  {
+   "id": "parcel",
+   "name": "소포 배달",
+   "line": "TRANSPORT",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "errand",
+   "name": "장보기 심부름",
+   "line": "TRANSPORT",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "document",
+   "name": "서류 전달",
+   "line": "TRANSPORT",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "passenger",
+   "name": "승객 운송",
+   "line": "TRANSPORT",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "ambulance",
+   "name": "환자 긴급 이송",
+   "line": "TRANSPORT",
+   "tier": "JOB",
+   "type": "EMERGENCY"
+  },
+  {
+   "id": "vip",
+   "name": "VIP 운송",
+   "line": "TRANSPORT",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "EXPERT",
+   "gear": 1500
+  },
+  {
+   "id": "freight",
+   "name": "장거리 화물 계약",
+   "line": "TRANSPORT",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "route",
+   "name": "배송 노선 개설",
+   "line": "TRANSPORT",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "small_hunt",
+   "name": "소형 동물 수렵",
+   "line": "HUNTING",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "meat"
+  },
+  {
+   "id": "trap",
+   "name": "덫 설치·회수",
+   "line": "HUNTING",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "hide"
+  },
+  {
+   "id": "pest_control",
+   "name": "유해 동물 퇴치",
+   "line": "HUNTING",
+   "tier": "JOB",
+   "type": "REQUEST"
+  },
+  {
+   "id": "clean_hide",
+   "name": "무손상 가죽 확보",
+   "line": "HUNTING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "yield_item": "hide"
+  },
+  {
+   "id": "big_game",
+   "name": "대형 동물 사냥",
+   "line": "HUNTING",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "EXPERT",
+   "gear": 1500,
+   "yield_item": "hide"
+  },
+  {
+   "id": "meat_contract",
+   "name": "정육 납품 계약",
+   "line": "HUNTING",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "logging",
+   "name": "벌목",
+   "line": "CONSTRUCTION",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "wood"
+  },
+  {
+   "id": "quarrying",
+   "name": "채석",
+   "line": "CONSTRUCTION",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "stone"
+  },
+  {
+   "id": "house_repair",
+   "name": "주택 수리",
+   "line": "CONSTRUCTION",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "new_build",
+   "name": "신축 시공",
+   "line": "CONSTRUCTION",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "REGULAR",
+   "gear": 1500
+  },
+  {
+   "id": "disaster_recovery",
+   "name": "재해 복구",
+   "line": "CONSTRUCTION",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "event_only": true
+  },
+  {
+   "id": "public_bid",
+   "name": "공공 시설 입찰",
+   "line": "CONSTRUCTION",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "herb",
+   "name": "약초 채집",
+   "line": "MEDICAL",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "herb"
+  },
+  {
+   "id": "rare_herb",
+   "name": "희귀 약초 탐색",
+   "line": "MEDICAL",
+   "tier": "HOBBY",
+   "type": "REQUEST",
+   "yield_item": "herb"
+  },
+  {
+   "id": "treat",
+   "name": "부상자 치료",
+   "line": "MEDICAL",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "field_treatment",
+   "name": "현장 출동 치료",
+   "line": "MEDICAL",
+   "tier": "JOB",
+   "type": "EMERGENCY"
+  },
+  {
+   "id": "supply_contract",
+   "name": "약품 공급 계약",
+   "line": "MEDICAL",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "patrol",
+   "name": "동네 순찰",
+   "line": "SECURITY",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "report_suspect",
+   "name": "수상한 인물 신고",
+   "line": "SECURITY",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "respond",
+   "name": "신고 대응",
+   "line": "SECURITY",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "robbery_arrest",
+   "name": "강도 체포",
+   "line": "SECURITY",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "min_rank": "REGULAR"
+  },
+  {
+   "id": "wanted",
+   "name": "현상수배 체포",
+   "line": "SECURITY",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "EXPERT",
+   "gear": 1500
+  },
+  {
+   "id": "guard_contract",
+   "name": "사업장 경비 계약",
+   "line": "SECURITY",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "specimen",
+   "name": "표본 수집",
+   "line": "COLLECTING",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "rare_find",
+   "name": "희귀 아이템 탐색",
+   "line": "COLLECTING",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  }
+ ],
+ "chain": [
+  {
+   "id": "robbery",
+   "name": "강도 사건",
+   "base_p": 0.004,
+   "crime": true,
+   "step": [
+    {
+     "template": "robbery_arrest"
+    },
+    {
+     "template": "field_treatment"
+    },
+    {
+     "template": "ambulance",
+     "on_done": [
+      {
+       "kind": "BIZ_BONUS",
+       "target": "MEDICAL",
+       "value": 200,
+       "duration": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "beast",
+   "name": "맹수 출몰",
+   "base_p": 0.003,
+   "crime": false,
+   "step": [
+    {
+     "template": "pest_control"
+    },
+    {
+     "template": "field_treatment",
+     "on_start": [
+      {
+       "kind": "DEMAND",
+       "target": "herb",
+       "value": 2.0,
+       "duration": 40
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "storm",
+   "name": "폭풍 재해",
+   "base_p": 0.002,
+   "crime": false,
+   "step": [
+    {
+     "template": "disaster_recovery",
+     "on_start": [
+      {
+       "kind": "DEMAND",
+       "target": "wood",
+       "value": 2.5,
+       "duration": 64
+      },
+      {
+       "kind": "DEMAND",
+       "target": "stone",
+       "value": 2.5,
+       "duration": 64
+      },
+      {
+       "kind": "SPAWN_BOOST",
+       "target": "TRANSPORT",
+       "value": 2.0,
+       "duration": 64
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "item": [
+  {
+   "id": "wood",
+   "name": "목재",
+   "base_price": 4,
+   "line": "CONSTRUCTION"
+  },
+  {
+   "id": "stone",
+   "name": "석재",
+   "base_price": 5,
+   "line": "CONSTRUCTION"
+  },
+  {
+   "id": "herb",
+   "name": "약초",
+   "base_price": 6,
+   "line": "MEDICAL"
+  },
+  {
+   "id": "meat",
+   "name": "고기",
+   "base_price": 8,
+   "line": "HUNTING"
+  },
+  {
+   "id": "hide",
+   "name": "가죽",
+   "base_price": 12,
+   "line": "HUNTING"
+  }
+ ]
+}

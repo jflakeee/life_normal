@@ -5,36 +5,20 @@ on:
   pull_request:
 
 jobs:
-  python:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --group dev
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run pyright
-      - run: uv run pytest            # slow 제외: 단위·속성·저장 호환·서버 API·소규모 경제
-
-  client:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: client
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6     # E2E가 실제 서버를 띄운다
-      - run: uv sync
-        working-directory: .
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: client/package-lock.json
       - run: npm ci
       - run: npm run check            # svelte-check (타입)
-      - run: npm test                 # vitest (API 클라이언트, 포맷)
+      - run: npm test                 # 규칙·백엔드·전체 규모 밸런스 회귀(시드 3개)
       - run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}
       - run: npm run size             # JS 150 KB(gzip) 예산
       - run: npx playwright install --with-deps chromium
-      - run: npm run e2e              # 360×640 세로 화면
+      - run: npm run e2e              # 360×640 세로 화면, Pages와 같은 하위 경로
