@@ -1,0 +1,15 @@
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+save.json
+.client_token
+*.db
+*.db-shm
+*.db-wal
+client/node_modules/
+client/build/
+client/.svelte-kit/
+client/test-results/
+client/playwright-report/

@@ -1,0 +1,19 @@
+name: balance
+# 게임 수치나 로직이 바뀌면 전체 규모 경제 시뮬레이션(200명 × 300시간, 시드 3개)으로 목표 확인:
+# 회수율 0.8 이상, 전원 사업 도달, 사업 도달 중앙값 100~160시간, 계층 수입 순서
+on:
+  push:
+    branches: [main]
+    paths: ["core/**", "sim/**"]
+  pull_request:
+    paths: ["core/**", "sim/**"]
+
+jobs:
+  balance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --group dev
+      - run: uv run pytest -m slow -v
+      - run: uv run python -m sim.economy_sim >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,138 @@
+/* 동네 임무: 세이지 종이 + 소나무 글자, 우체통 파랑(행동), 인주(완료 도장), 겨자(사건) */
+:root {
+	color-scheme: light;
+	--paper: #eef1ea;
+	--surface: #f8faf6;
+	--ink: #1e2a23;
+	--ink-2: #5b6a60;
+	--line: #cfd6cc;
+	--action: #2c5b86;
+	--action-ink: #ffffff;
+	--seal: #b8352b;
+	--event: #a87a0e;
+	--event-bg: #f6ecd2;
+	--font: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+	--tabbar: 60px;
+	box-sizing: border-box;
+	padding-top: env(safe-area-inset-top, 0px);
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		color-scheme: dark;
+		--paper: #151b17;
+		--surface: #1d2520;
+		--ink: #e5ebe4;
+		--ink-2: #9aa79d;
+		--line: #344038;
+		--action: #86afd9;
+		--action-ink: #0f1a24;
+		--seal: #e0675b;
+		--event: #e2b64a;
+		--event-bg: #2c2716;
+	}
+}
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
+html,
+body {
+	margin: 0;
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font);
+	font-size: 15px;
+	line-height: 1.5;
+	-webkit-tap-highlight-color: transparent;
+}
+h1,
+h2,
+h3,
+p {
+	margin: 0;
+}
+h2 {
+	font-size: 17px;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+.num {
+	font-variant-numeric: tabular-nums;
+}
+.quiet {
+	color: var(--ink-2);
+	font-size: 13px;
+}
+button {
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+	border: 0;
+	background: none;
+	padding: 0;
+	min-height: 44px; /* 엄지 터치 영역 */
+}
+button:focus-visible {
+	outline: 2px solid var(--action);
+	outline-offset: 2px;
+}
+button:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+.primary {
+	width: 100%;
+	border-radius: 12px;
+	background: var(--action);
+	color: var(--action-ink);
+	font-weight: 700;
+	padding: 0 16px;
+}
+.secondary {
+	border-radius: 10px;
+	border: 1.5px solid var(--action);
+	color: var(--action);
+	font-weight: 600;
+	padding: 0 14px;
+}
+.panel {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 14px;
+	padding: 14px 16px;
+}
+.event {
+	background: var(--event-bg);
+	border: 1.5px solid var(--event);
+	border-radius: 14px;
+	padding: 12px 16px;
+}
+.row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+.stack {
+	display: grid;
+	gap: 12px;
+}
+.bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--line);
+	overflow: hidden;
+}
+.bar > span {
+	display: block;
+	height: 100%;
+	background: var(--action);
+}
+@media (prefers-reduced-motion: reduce) {
+	* {
+		animation: none !important;
+		transition: none !important;
+	}
+}
