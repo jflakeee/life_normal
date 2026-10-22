@@ -70,3 +70,17 @@ test('세이브를 내보내고, 처음부터 다시 한 뒤 가져오면 진행
 	await page.getByRole('button', { name: '임무' }).click();
 	await expect(page.getByText('대기열 1/20')).toBeVisible();
 });
+
+test('홈에 픽셀 마을이 그려지고, 건물을 누르면 임무 탭으로 간다', async ({ page }) => {
+	await page.goto('./');
+	const canvas = page.locator('canvas');
+	await expect(canvas).toHaveAttribute('aria-hidden', 'true');
+	// 그림이 실제로 그려졌는지: 캔버스 가운데 픽셀이 투명하지 않다
+	await expect
+		.poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.getContext('2d')!.getImageData(90, 30, 1, 1).data[3]))
+		.toBe(255);
+	const box = (await canvas.boundingBox())!;
+	await page.mouse.click(box.x + box.width * (90 / 180), box.y + box.height * (30 / 120)); // 건축 집
+	await expect(page).toHaveURL(/#missions$/);
+	await expect(page.getByText(/대기열 \d+\/20/)).toBeVisible();
+});

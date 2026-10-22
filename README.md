@@ -11,6 +11,7 @@ src/lib/core/      게임 규칙 (모델, 임무·연계 이벤트, 수집 도�
 src/lib/local/     브라우저 안 백엔드 (지연 평가 타이머, 멱등 명령, ledger, 알림)
 src/lib/sim/       경제 시뮬레이터 + 밸런스 회귀 테스트
 src/lib/tabs/      화면 (홈, 임무, 마을, 상점, 나)
+src/lib/pixel/     픽셀 마을 장면 (atlas.ts: 스프라이트 이름 ↔ 그림 좌표, scene.ts: 배치 계산)
 e2e/               360×640 Playwright 테스트
 ```
 
@@ -32,6 +33,10 @@ npx playwright install chromium && npm run e2e         # 하위 경로 빌드로
 
 `main`에 푸시하면 `pages` 워크플로가 테스트 → 빌드 → GitHub Pages 배포를 한다.
 처음 한 번은 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 바꿔야 한다.
+
+## 그래픽
+
+지금은 Kenney의 CC0 무료 픽셀 에셋을 쓴다 (출처: ASSETS.md). 직접 그린 아트로 바꿀 때는 `src/lib/pixel/assets/`의 PNG와 `atlas.ts` 좌표만 바꾸면 된다.
 
 ## 수치를 바꿀 때
 
