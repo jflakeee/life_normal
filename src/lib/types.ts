@@ -18,6 +18,8 @@ export interface Catalog {
 	daily_limit: number;
 	mission_seconds: number;
 	business: { open_cost: number; revenue: number; tax: number; settlements_per_day: number };
+	workers: { max: number; revenue_bonus: number; wage: number; hire_cost: number };
+	buildings: { costs: number[]; reward_bonus: number };
 }
 
 export interface Run {
@@ -38,6 +40,9 @@ export interface PlayerState {
 	jobs: Record<string, { rank: string; job_missions: number; requests_done: number; missing: string[] }>;
 	equipment: string[];
 	businesses: string[];
+	workers: number[];
+	buildings: Record<string, number>;
+	upgrade_costs: Record<string, number | null>;
 	pending_settlements: number;
 	queue: Run[];
 	workbench: WorkbenchState;

@@ -70,7 +70,13 @@
   "revenue_per_settlement": 340,
   "upkeep_base": 100,
   "upkeep_exponent": 1.5,
-  "tax": 0.3
+  "tax": 0.3,
+  "workers": {
+   "max": 3,
+   "revenue_bonus": 0.2,
+   "wage": 30,
+   "hire_cost": 3000
+  }
  },
  "shop": {
   "기본 장비": 200,
@@ -137,5 +143,12 @@
   "fast_bonus": 1,
   "chain_step": 3,
   "max": 100
+ },
+ "buildings": {
+  "costs": [
+   20000,
+   50000
+  ],
+  "reward_bonus": 0.05
  }
 }

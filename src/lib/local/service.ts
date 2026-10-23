@@ -11,7 +11,15 @@ import {
 	availableTo,
 	BUSINESS_OPEN_COST,
 	BUSINESS_REVENUE,
+	BUILDINGS_RULES,
 	BUSINESS_TAX,
+	hireWorker,
+	rewardMult,
+	settlementRevenue,
+	upgradeBuilding,
+	upgradeCost,
+	workerWages,
+	WORKERS,
 	gainXp,
 	DEATH_P,
 	HOBBY_MEDICAL_DISCOUNT,
@@ -52,7 +60,7 @@ const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
 const RISKY: Line[] = ['HUNTING', 'SECURITY'];
-export const SAVE_VERSION = 5; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성
+export const SAVE_VERSION = 6; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */
 export class GameError extends Error {}
@@ -207,6 +215,9 @@ export function state(s: Session): Json {
 		),
 		equipment: p.equipment.map((e) => e.name),
 		businesses: p.businesses,
+		workers: p.workers,
+		buildings: p.buildings,
+		upgrade_costs: Object.fromEntries(LINES.map((l) => [l, upgradeCost(p, l)])),
 		pending_settlements: pendingSettlements(s),
 		queue: runs,
 		workbench: workbenchState(s),
@@ -269,7 +280,9 @@ export function catalog(): Json {
 		slots_max: wb.SLOTS_MAX,
 		daily_limit: wb.DAILY_LIMIT,
 		mission_seconds: TICK_SECONDS,
-		business: { open_cost: BUSINESS_OPEN_COST, revenue: BUSINESS_REVENUE, tax: BUSINESS_TAX, settlements_per_day: SETTLE_CAP }
+		business: { open_cost: BUSINESS_OPEN_COST, revenue: BUSINESS_REVENUE, tax: BUSINESS_TAX, settlements_per_day: SETTLE_CAP },
+		workers: WORKERS,
+		buildings: BUILDINGS_RULES
 	};
 }
 
@@ -382,7 +395,12 @@ function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { re
 		drop = collectDrop(rng, p, t);
 	}
 	const sold = drop?.soldFor ?? 0;
-	const gained = p.money - before - sold; // 의뢰 빠른 완료 보너스 포함
+	let gained = p.money - before - sold; // 의뢰 빠른 완료 보너스 포함
+	if ('postingId' in how) {
+		const extra = gained * (rewardMult(p, t.line) - 1); // 건물 확장 보너스
+		p.money += extra;
+		gained += extra;
+	}
 	s.ledger('mission_reward', gained, ref);
 	s.ledger('collection_sale', sold, ref);
 	const item: Json = { name: t.name, reward: gained, rate };
@@ -410,7 +428,7 @@ export function claim(s: Session): Json {
 	for (const w of work) {
 		const t = TEMPLATES[w.template];
 		const ref = `work:${w.slot}:${w.at}`;
-		const reward = Math.round(s.board.rewardFor(w.template) * w.rate);
+		const reward = Math.round(s.board.rewardFor(w.template) * w.rate * rewardMult(p, t.line));
 		results.push(settle(s, t, ref, new Rng(`${p.id}:${ref}`), { reward, rate: w.rate }));
 	}
 	for (const slot of s.d.workbench.slots) slot.pending = [];
@@ -428,7 +446,7 @@ export function claim(s: Session): Json {
 			}
 			results.push({ run: r.id, ...settle(s, t, ref, rng, { postingId: r.postingId }) });
 		} else {
-			results.push({ run: r.id, ...settle(s, t, ref, rng, { reward: r.reward, rate: 1 }) });
+			results.push({ run: r.id, ...settle(s, t, ref, rng, { reward: Math.round(r.reward * rewardMult(p, t.line)), rate: 1 }) });
 		}
 	}
 	return { claimed: results, money: Math.round(p.money * 100) / 100 };
@@ -483,15 +501,16 @@ export function collect(s: Session): Json {
 	const pending = pendingSettlements(s);
 	if (!pending || s.d.bizLast === null) return { settled: 0 };
 	const p = s.p;
-	const n = p.businesses.length;
 	const rng = new Rng(`${p.id}:biz:${s.d.bizLast}`);
 	let total = 0;
 	for (let i = 0; i < pending; i++) {
-		const rev = BUSINESS_REVENUE * n * rng.uniform(0.7, 1.3);
+		const rev = settlementRevenue(p, rng.uniform(0.7, 1.3));
+		const wage = workerWages(p);
 		s.pay('business_revenue', rev);
 		s.pay('business_tax', -rev * BUSINESS_TAX);
 		s.pay('business_upkeep', -upkeep(p));
-		total += rev * (1 - BUSINESS_TAX) - upkeep(p);
+		s.pay('worker_wage', -wage);
+		total += rev * (1 - BUSINESS_TAX) - upkeep(p) - wage;
 	}
 	for (const l of new Set(p.businesses)) {
 		const bonus = s.board.world.bizBonus[l] ?? 0;
@@ -502,6 +521,18 @@ export function collect(s: Session): Json {
 	const capped = s.now - s.d.bizLast >= SETTLE_CAP * SETTLE_INTERVAL;
 	s.d.bizLast = capped ? s.now : s.d.bizLast + pending * SETTLE_INTERVAL;
 	return { settled: pending, net: Math.round(total * 100) / 100, money: Math.round(p.money * 100) / 100 };
+}
+
+export function hire(s: Session, index: number): Json {
+	if (s.p.businesses.length) collect(s); // 일꾼 수가 바뀌기 전에 밀린 정산부터
+	rule(() => s.track('worker_hire', String(index), () => hireWorker(s.p, index)));
+	return { business: index, workers: s.p.workers[index] };
+}
+
+export function upgrade(s: Session, lineName: string): Json {
+	const l = line(lineName);
+	const level = rule(() => s.track('building_upgrade', l, () => upgradeBuilding(s.p, l)));
+	return { line: l, level };
 }
 
 // ── 점검 ─────────────────────────────────────────────
@@ -549,6 +580,11 @@ export function migrateSave(d: SaveData): SaveData {
 		p.fame = Object.fromEntries(LINES.map((l) => [l, Math.min(100, p.jobs[l]?.requestsDone ?? 0)])) as Player['fame'];
 		delete p.reputation;
 		d.version = 5;
+	}
+	if (d.version === 5) {
+		d.player.workers = d.player.businesses.map(() => 0);
+		d.player.buildings = Object.fromEntries(LINES.map((l) => [l, 0])) as Player['buildings'];
+		d.version = 6;
 	}
 	return d;
 }

@@ -11,6 +11,10 @@
 	const moved = $derived(items.some(([, m]) => Math.abs(m.price - m.base) > 0.01));
 	const chiefLines = $derived(Object.entries(p.jobs).filter(([, j]) => j.rank === 'CHIEF'));
 	const events = $derived(game.board.events.slice(-3).reverse());
+	const wk = $derived(game.catalog!.workers);
+	const bd = $derived(game.catalog!.buildings);
+	const lineNames = $derived(game.catalog!.lines);
+	const buildingLines = $derived(Object.keys(lineNames).filter((l) => l !== 'COLLECTING'));
 </script>
 
 <div class="stack">
@@ -54,6 +58,21 @@
 				매출세 {Math.round(biz.tax * 100)}%와 유지비가 빠져요. 4개째부터는 총이익이 줄어듭니다
 			</p>
 			<button class="secondary" disabled={!p.pending_settlements || game.busy} onclick={() => game.collect()}>정산 받기</button>
+			<ul class="biz">
+				{#each p.businesses as line, i (i)}
+					<li class="row">
+						<span>{lineNames[line]} 사업 {i + 1} · 일꾼 {p.workers[i] ?? 0}/{wk.max}</span>
+						<button
+							class="secondary"
+							disabled={(p.workers[i] ?? 0) >= wk.max || p.money < wk.hire_cost || game.busy}
+							onclick={() => game.hire(i)}
+						>
+							고용 {gold(wk.hire_cost)}
+						</button>
+					</li>
+				{/each}
+			</ul>
+			<p class="quiet">일꾼 1명당 그 사업의 정산 매출 +{Math.round(wk.revenue_bonus * 100)}%, 정산마다 급여 {wk.wage} G</p>
 		{:else}
 			<p class="quiet">직업이 책임 직급이 되고 {gold(biz.open_cost)}를 모으면 사업을 열 수 있어요</p>
 		{/if}
@@ -70,9 +89,36 @@
 			</p>
 		{/if}
 	</section>
+
+	<section class="panel stack">
+		<h2>건물 확장</h2>
+		<p class="quiet">확장할 때마다 그 계열 임무 보상이 +{Math.round(bd.reward_bonus * 100)}% 올라요 (최대 {bd.costs.length}단계)</p>
+		<ul class="biz">
+			{#each buildingLines as line (line)}
+				{@const cost = p.upgrade_costs[line]}
+				<li class="row">
+					<span>{lineNames[line]} · {p.buildings[line] ?? 0}단계</span>
+					{#if cost === null}
+						<span class="quiet">최고 단계</span>
+					{:else}
+						<button class="secondary" disabled={p.money < cost || game.busy} onclick={() => game.upgrade(line)}>
+							확장 {gold(cost)}
+						</button>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	</section>
 </div>
 
 <style>
+	.biz {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 6px;
+	}
 	h3 {
 		margin: 14px 0 0;
 		font-size: 13px;

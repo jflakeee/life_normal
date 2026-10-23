@@ -6,6 +6,13 @@ import { Board, newTown, priceRatio, processReward, TEMPLATES } from '$lib/core/
 import {
 	addFame,
 	BUSINESS_OPEN_COST,
+	hireWorker,
+	rewardMult,
+	settlementRevenue,
+	upgradeBuilding,
+	upgradeCost,
+	workerWages,
+	WORKERS,
 	BUSINESS_REVENUE,
 	BUSINESS_TAX,
 	businessUpkeep,
@@ -84,6 +91,8 @@ export interface Params {
 	bizTax: number;
 	/** 하루 단위 모드 (작업대): 날마다 limit건, full건 이후 보상률 overRate. hours 대신 days만큼 돈다 */
 	daily: { days: number; limit: number; full: number; overRate: number; settlementsPerDay: number; requestsPerDay?: number } | null;
+	/** 사업 뒤 지출 행동 (일꾼, 건물 확장) */
+	sinks: { workers: boolean; buildings: boolean };
 	/** 현재 날짜 (하루 단위 모드에서 내부용) */
 	day: number;
 }
@@ -98,6 +107,7 @@ export const DEFAULT_PARAMS: Params = {
 	repairRate: REPAIR_RATE,
 	bizTax: BUSINESS_TAX,
 	daily: null,
+	sinks: { workers: true, buildings: true },
 	day: 0
 };
 
@@ -129,7 +139,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 
 	// 1) 활동 수입 + 경험치
 	if (!job) {
-		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate;
+		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line);
 		const items = YIELD_ITEMS[line];
 		if (board && items) gross *= items.reduce((s, i) => s + priceRatio(board.world, i), 0) / items.length;
 		const tax = gross * SALES_TAX;
@@ -146,7 +156,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
 			if (rankOk && gearOk) bonus = Math.max(bonus, processReward(world, t.process!));
 		}
-		const pay = (hourlyPay(job) * MISSION_HOURS + bonus) * rate;
+		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line)) * rate;
 		p.money += pay;
 		led.earn('직업 급여', pay);
 		job.jobMissions++;
@@ -180,13 +190,15 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 		a.bizDue += prm.bizPerMission;
 		while (a.bizDue >= 1) {
 			a.bizDue -= 1;
-			const rev = BUSINESS_REVENUE * p.businesses.length * rng.uniform(0.7, 1.3);
+			const rev = settlementRevenue(p, rng.uniform(0.7, 1.3));
 			const up = upkeep(p);
 			const tax = rev * prm.bizTax;
-			p.money += rev - up - tax;
+			const wage = workerWages(p);
+			p.money += rev - up - tax - wage;
 			led.earn('사업 매출', rev);
 			led.spend('사업 유지비', up);
 			led.spend('사업 매출세', tax);
+			if (wage) led.spend('일꾼 급여', wage);
 		}
 	}
 	const bucket = a.income[p.businesses.length ? 'BUSINESS' : tier];
@@ -220,6 +232,22 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			led.spend('사업 개설', BUSINESS_OPEN_COST);
 			a.milestones['사업'] ??= hours;
 			a.days['사업'] ??= prm.day;
+		}
+		// 사업 뒤의 지출: 일꾼 고용(이득이면), 건물 확장 (여윳돈이 있으면)
+		if (p.businesses.length && prm.sinks.workers) {
+			const i = p.workers.findIndex((w) => w < WORKERS.max);
+			const gain = BUSINESS_REVENUE * WORKERS.revenue_bonus * (1 - prm.bizTax) - WORKERS.wage;
+			if (i >= 0 && gain > 0 && p.money >= WORKERS.hire_cost + 1_000) {
+				hireWorker(p, i);
+				led.spend('일꾼 고용', WORKERS.hire_cost);
+			}
+		}
+		if (p.businesses.length && prm.sinks.buildings) {
+			const cost = upgradeCost(p, line);
+			if (cost !== null && p.money >= cost + 2_000) {
+				upgradeBuilding(p, line);
+				led.spend('건물 확장', cost);
+			}
 		}
 	}
 }

@@ -165,6 +165,15 @@ export class Game {
 		return this.run(() => this.api.command('POST', '/businesses', { line }), '사업을 열었습니다');
 	}
 
+	hire(index: number) {
+		return this.run(() => this.api.command('POST', `/businesses/${index}/hire`), '일꾼을 고용했어요');
+	}
+
+	upgrade(line: string) {
+		const name = this.catalog?.lines[line] ?? line;
+		return this.run(() => this.api.command('POST', `/buildings/${line}/upgrade`), `${name} 건물을 확장했어요`);
+	}
+
 	collect() {
 		return this.run(async () => {
 			const r = await this.api.command<{ settled: number; net?: number }>('POST', '/businesses/collect');

@@ -44,3 +44,15 @@ describe('fame keeps light players moving', () => {
 		expect(r.medianDays('사업')).toBeLessThanOrEqual(40);
 	}, 60_000);
 });
+
+describe('long-run recovery with workers and building upgrades', () => {
+	it('stays at 0.8 or above after 120 days', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const I = B.idle;
+		const r = run({
+			seed: 1,
+			daily: { days: 120, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 }
+		});
+		expect(r.recovery).toBeGreaterThanOrEqual(0.8);
+	}, 120_000);
+});

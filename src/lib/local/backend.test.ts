@@ -352,7 +352,68 @@ describe('fame migration', () => {
 		const st = await old.get<{ fame: Record<string, number> }>('/state');
 		expect(st.fame.HUNTING).toBe(30);
 		expect(st.fame.TRANSPORT).toBe(0);
-		expect(old.game.data.version).toBe(5);
+		expect(old.game.data.version).toBe(6); // v4 → v5(명성) → v6(일꾼·건물)
 		expect('reputation' in old.game.data.player).toBe(false);
+	});
+});
+
+describe('workers and buildings (long-run sinks)', () => {
+	const rich = (be: ReturnType<typeof setup>['be']) =>
+		be.game.query((s) => {
+			s.p.jobs.HUNTING = { rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
+			s.pay('grant', 200_000, 'test');
+		});
+
+	it('a worker costs 3,000 G, raises settlement revenue and is paid every settlement', async () => {
+		const a = setup('w');
+		const b = setup('w');
+		for (const x of [a, b]) {
+			rich(x.be);
+			await x.be.command('POST', '/businesses', { line: 'HUNTING' });
+		}
+		const before = a.be.game.data.player.money;
+		await a.be.command('POST', '/businesses/0/hire');
+		expect(before - a.be.game.data.player.money).toBe(3_000);
+		for (const x of [a, b]) x.advance(86_400);
+		const ra = await a.be.command<{ net: number }>('POST', '/businesses/collect');
+		const rb = await b.be.command<{ net: number }>('POST', '/businesses/collect');
+		expect(ra.net).toBeGreaterThan(rb.net); // 같은 시드: 일꾼이 있는 쪽이 더 번다
+		expect(a.be.game.data.ledger.totals.worker_wage).toBeCloseTo(-30 * 10);
+		expect(audit(a.be.game.data)).toBe(0);
+	});
+
+	it('allows at most 3 workers per business', async () => {
+		const { be } = setup();
+		rich(be);
+		await be.command('POST', '/businesses', { line: 'HUNTING' });
+		for (let i = 0; i < 3; i++) await be.command('POST', '/businesses/0/hire');
+		await expect(be.command('POST', '/businesses/0/hire')).rejects.toMatchObject({ status: 409 });
+		await expect(be.command('POST', '/businesses/5/hire')).rejects.toMatchObject({ status: 409 });
+	});
+
+	it('building upgrades cost 20k then 50k and raise that line’s rewards by 5% each', async () => {
+		const { be, advance } = setup();
+		rich(be);
+		await be.command('POST', '/buildings/TRANSPORT/upgrade');
+		await be.command('POST', '/buildings/TRANSPORT/upgrade');
+		await expect(be.command('POST', '/buildings/TRANSPORT/upgrade')).rejects.toMatchObject({ status: 409 });
+		expect(be.game.data.ledger.totals.building_upgrade).toBe(-70_000);
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		advance(TICK_SECONDS);
+		const c = await be.command<{ claimed: { reward: number }[] }>('POST', '/claims');
+		expect(c.claimed[0].reward).toBe(Math.round(5 * 1.1)); // 소포 배달 5 G × 1.1
+		expect(audit(be.game.data)).toBe(0);
+	});
+
+	it('a v5 save gets empty worker and building records', async () => {
+		const { store, clock } = setup();
+		const d = JSON.parse(store.raw!);
+		d.version = 5;
+		delete d.player.workers;
+		delete d.player.buildings;
+		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
+		const st = await old.get<{ buildings: Record<string, number>; workers: number[] }>('/state');
+		expect(st.workers).toEqual([]);
+		expect(st.buildings.HUNTING).toBe(0);
 	});
 });

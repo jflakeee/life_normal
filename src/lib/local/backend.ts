@@ -21,6 +21,8 @@ const ROUTES: [method: string, pattern: RegExp, command: boolean, handler: Handl
 	['POST', /^\/jobs\/(\w+)\/promote$/, true, (m) => (s) => svc.promote(s, m[1])],
 	['POST', /^\/businesses$/, true, (_, b) => (s) => svc.openBusiness(s, String(b.line))],
 	['POST', /^\/businesses\/collect$/, true, () => svc.collect],
+	['POST', /^\/businesses\/(\d+)\/hire$/, true, (m) => (s) => svc.hire(s, Number(m[1]))],
+	['POST', /^\/buildings\/(\w+)\/upgrade$/, true, (m) => (s) => svc.upgrade(s, m[1])],
 	['POST', /^\/shop\/buy$/, true, (_, b) => (s) => svc.buy(s, String(b.item))]
 ];
 

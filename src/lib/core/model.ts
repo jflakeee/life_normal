@@ -30,6 +30,10 @@ export const BUSINESS_OPEN_COST = B.business.open_cost;
 export const BUSINESS_REVENUE = B.business.revenue_per_settlement;
 export const BUSINESS_TAX = B.business.tax;
 export const SHOP: Record<string, number> = B.shop;
+/** 일꾼: 사업마다 최대 3명. 정산 매출 +25%/명, 정산마다 급여 */
+export const WORKERS = { ...B.business.workers };
+/** 건물 확장: 계열 건물 레벨 0~2, 그 계열 임무 보상 +5%/레벨 */
+export const BUILDINGS_RULES = { costs: [...B.buildings.costs], reward_bonus: B.buildings.reward_bonus };
 
 export interface RankRequirement {
 	level: number;
@@ -86,6 +90,8 @@ export interface Player {
 	skills: Record<Line, SkillState>;
 	jobs: Partial<Record<Line, JobState>>;
 	businesses: Line[];
+	workers: number[]; // 사업마다 일꾼 수 (businesses와 같은 순서)
+	buildings: Record<Line, number>; // 계열 건물 레벨
 	equipment: Equipment[];
 	collection: string[];
 }
@@ -98,6 +104,8 @@ export function newPlayer(id: string, money = 0): Player {
 		skills: Object.fromEntries(LINES.map((l) => [l, { level: 1, xp: 0 }])) as Record<Line, SkillState>,
 		jobs: {},
 		businesses: [],
+		workers: [],
+		buildings: Object.fromEntries(LINES.map((l) => [l, 0])) as Record<Line, number>,
 		equipment: [],
 		collection: []
 	};
@@ -171,9 +179,39 @@ export function openBusiness(p: Player, line: Line): void {
 	if (!canOpenBusiness(p, line)) throw new RuleError('책임 직급과 자본이 필요합니다');
 	p.money -= BUSINESS_OPEN_COST;
 	p.businesses.push(line);
+	p.workers.push(0);
 }
 
 export const upkeep = (p: Player) => businessUpkeep(p.businesses.length);
+
+/** 정산 1회 매출 (u: 0.7~1.3 변동). 일꾼이 사업마다 매출을 올린다 */
+export const settlementRevenue = (p: Player, u: number) =>
+	BUSINESS_REVENUE * u * p.businesses.reduce((s, _, i) => s + 1 + WORKERS.revenue_bonus * (p.workers[i] ?? 0), 0);
+
+export const workerWages = (p: Player) => WORKERS.wage * p.workers.reduce((a, b) => a + b, 0);
+
+export function hireWorker(p: Player, index: number): void {
+	if (index < 0 || index >= p.businesses.length) throw new RuleError('없는 사업입니다');
+	if ((p.workers[index] ?? 0) >= WORKERS.max) throw new RuleError(`일꾼은 사업마다 ${WORKERS.max}명까지예요`);
+	if (p.money < WORKERS.hire_cost) throw new RuleError(`고용비가 부족합니다 (${WORKERS.hire_cost.toLocaleString('ko-KR')} G)`);
+	p.money -= WORKERS.hire_cost;
+	p.workers[index] = (p.workers[index] ?? 0) + 1;
+}
+
+/** 다음 확장 비용 (최고 레벨이면 null) */
+export const upgradeCost = (p: Player, line: Line): number | null => BUILDINGS_RULES.costs[p.buildings[line] ?? 0] ?? null;
+
+export function upgradeBuilding(p: Player, line: Line): number {
+	const cost = upgradeCost(p, line);
+	if (cost === null) throw new RuleError('더 확장할 수 없어요');
+	if (p.money < cost) throw new RuleError(`확장비가 부족합니다 (${cost.toLocaleString('ko-KR')} G)`);
+	p.money -= cost;
+	p.buildings[line] = (p.buildings[line] ?? 0) + 1;
+	return p.buildings[line];
+}
+
+/** 건물 레벨에 따른 그 계열 임무 보상 배율 */
+export const rewardMult = (p: Player, line: Line) => 1 + BUILDINGS_RULES.reward_bonus * (p.buildings[line] ?? 0);
 
 export function onDeath(p: Player): number {
 	const loss = Math.max(p.money, 0) * DEATH_MONEY_LOSS + DEATH_MEDICAL_FEE;
