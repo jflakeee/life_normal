@@ -7,7 +7,7 @@ import { DROP_P, obtain, roll, type Drop } from './collection';
 import B from './data/balance.json';
 import M from './data/missions.json';
 import { LINES, type Line, type MissionType, type Rank, type Tier } from './enums';
-import { availableTo, completeMission, price, type MarketEntry, type Mission, type Player } from './model';
+import { addFame, availableTo, completeMission, FAME_RULES, price, type MarketEntry, type Mission, type Player } from './model';
 import { Rng, type RngState } from './rng';
 
 const MB = B.missions;
@@ -316,6 +316,9 @@ export class Board {
 		const fast = x.deadline !== null && this.world.tick - x.posted <= (x.deadline - x.posted) / 2;
 		if (t.type === 'REQUEST' && fast) x.mission.reward = Math.round(x.mission.reward * (1 + MB.fast_bonus));
 		completeMission(x.mission, p);
+		// 명성: 의뢰 완료 +1, 기한 절반 안이면 +1, 연계 이벤트 단계 +3
+		if (t.type === 'REQUEST') addFame(p, t.line, FAME_RULES.request + (fast ? FAME_RULES.fast_bonus : 0));
+		if (x.chain) addFame(p, t.line, FAME_RULES.chain_step);
 		const drop = collectDrop(this.rng, p, t);
 		if (x.chain) {
 			const chain = CHAIN_BY_ID[x.chain.id];

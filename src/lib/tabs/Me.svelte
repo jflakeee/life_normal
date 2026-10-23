@@ -22,6 +22,13 @@
 			<div class="bar" aria-label="경험치 {sk.xp}/{xpToNext(sk.level)}">
 				<span style:width="{Math.min(100, (sk.xp / xpToNext(sk.level)) * 100)}%"></span>
 			</div>
+			<div class="row fame">
+				<span class="quiet">명성</span>
+				<div class="bar seal" aria-label="명성 {p.fame[line] ?? 0}/100">
+					<span style:width="{p.fame[line] ?? 0}%"></span>
+				</div>
+				<span class="num quiet">{p.fame[line] ?? 0}</span>
+			</div>
 			{#if job}
 				{#if job.missing.length === 0}
 					<button class="secondary" disabled={game.busy} onclick={() => game.promote(line)}>승급하기</button>
@@ -41,6 +48,7 @@
 	<section class="panel">
 		<h2>수집 Lv {p.skills.COLLECTING.level}</h2>
 		<p class="quiet">표본 수집으로 도감을 채우면 그 계열 경험치가 늘어나요. 계열을 모두 모으면 +10%를 더 받습니다</p>
+		<p class="quiet">명성은 의뢰를 끝내면 +1, 기한 절반 안이면 +1 더, 연계 이벤트 단계는 +3이에요. 책임 승급에는 그 계열 명성 80이 필요해요</p>
 	</section>
 	{#if game.canTransfer}
 		<section class="panel stack">
@@ -72,6 +80,12 @@
 </div>
 
 <style>
+	.fame .bar {
+		flex: 1;
+	}
+	.bar.seal > span {
+		background: var(--seal);
+	}
 	.grow {
 		flex: 1;
 	}

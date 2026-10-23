@@ -26,21 +26,21 @@
    "fee": 500,
    "job_missions": 40,
    "requests_done": 0,
-   "reputation": 0
+   "fame": 0
   },
   "EXPERT": {
    "level": 8,
    "fee": 2000,
    "job_missions": 0,
    "requests_done": 20,
-   "reputation": 0
+   "fame": 0
   },
   "CHIEF": {
    "level": 10,
    "fee": 5000,
    "job_missions": 0,
    "requests_done": 0,
-   "reputation": 80
+   "fame": 80
   }
  },
  "time": {
@@ -131,5 +131,11 @@
   "tap_seconds": 10,
   "tap_max_per_run": 30,
   "slots_max": 3
+ },
+ "fame": {
+  "request": 1,
+  "fast_bonus": 1,
+  "chain_step": 3,
+  "max": 100
  }
 }

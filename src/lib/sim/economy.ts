@@ -4,6 +4,7 @@
 import { LINES, rankIndex, type Line, type MissionType, type Rank, type Tier } from '$lib/core/enums';
 import { Board, newTown, priceRatio, processReward, TEMPLATES } from '$lib/core/missions';
 import {
+	addFame,
 	BUSINESS_OPEN_COST,
 	BUSINESS_REVENUE,
 	BUSINESS_TAX,
@@ -12,6 +13,7 @@ import {
 	canTakeJob,
 	DEATH_MONEY_LOSS,
 	DEATH_P,
+	FAME_RULES,
 	availableTo,
 	gainXp,
 	HOBBY_MEDICAL_DISCOUNT,
@@ -81,7 +83,7 @@ export interface Params {
 	repairRate: number;
 	bizTax: number;
 	/** 하루 단위 모드 (작업대): 날마다 limit건, full건 이후 보상률 overRate. hours 대신 days만큼 돈다 */
-	daily: { days: number; limit: number; full: number; overRate: number; settlementsPerDay: number } | null;
+	daily: { days: number; limit: number; full: number; overRate: number; settlementsPerDay: number; requestsPerDay?: number } | null;
 	/** 현재 날짜 (하루 단위 모드에서 내부용) */
 	day: number;
 }
@@ -117,12 +119,12 @@ function median(xs: number[]): number {
 	return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Board | null, rate = 1) {
+function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Board | null, rate = 1, forced?: MissionType) {
 	const { p, line } = a;
 	const hours = t * MISSION_HOURS;
 	const before = p.money;
 	let job = p.jobs[line];
-	const mtype: MissionType = rng.next() < REQUEST_PROB ? 'REQUEST' : 'ROUTINE';
+	const mtype: MissionType = forced ?? (rng.next() < REQUEST_PROB ? 'REQUEST' : 'ROUTINE');
 	let tier: Tier;
 
 	// 1) 활동 수입 + 경험치
@@ -152,6 +154,8 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 		tier = 'JOB';
 	}
 	gainXp(p, line, Math.round(MISSION_XP[mtype] * rate));
+	// 직접 수락한 의뢰는 3분 만에 끝나므로 늘 기한 절반 안 (빠른 완료)
+	if (mtype === 'REQUEST') addFame(p, line, FAME_RULES.request + FAME_RULES.fast_bonus);
 
 	// 2) 위험
 	if (RISKY.includes(line)) {
@@ -203,7 +207,6 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			p.equipment.push({ name: `gear${gear}`, price: gear, durability: 1 });
 			led.spend('장비 구매', gear);
 		}
-		p.reputation = Math.min(100, job.requestsDone); // 의뢰 1건 = 평판 1 (가정)
 		if (promoteMissing(p, line).length === 0) {
 			const r = promote(p, line) as keyof typeof RANK_REQ;
 			led.spend('자격 취득비', RANK_REQ[r].fee);
@@ -255,13 +258,23 @@ export function run(over: Partial<Params> = {}): Result {
 	}));
 	const board = prm.events ? new Board(newTown(prm.seed + 1, prm.players)) : null;
 	const daily = prm.daily;
-	if (daily) prm.bizPerMission = daily.settlementsPerDay / daily.limit;
-	const ticks = daily ? daily.days * daily.limit : Math.round(prm.hours / MISSION_HOURS);
+	// 하루 단위 모드: 작업대 상시 임무 limit건 + 직접 수락한 의뢰 requestsPerDay건 (의뢰는 한도에 들지 않음)
+	const reqs = daily?.requestsPerDay;
+	const perDay = daily ? daily.limit + (reqs ?? 0) : 0;
+	if (daily) prm.bizPerMission = daily.settlementsPerDay / perDay;
+	const ticks = daily ? daily.days * perDay : Math.round(prm.hours / MISSION_HOURS);
 	for (let t = 1; t <= ticks; t++) {
 		let rate = 1;
+		let forced: MissionType | undefined;
 		if (daily) {
-			prm.day = Math.floor((t - 1) / daily.limit) + 1;
-			rate = (t - 1) % daily.limit < daily.full ? 1 : daily.overRate;
+			prm.day = Math.floor((t - 1) / perDay) + 1;
+			const i = (t - 1) % perDay;
+			if (reqs !== undefined && i < reqs) forced = 'REQUEST';
+			else {
+				const j = i - (reqs ?? 0);
+				rate = j < daily.full ? 1 : daily.overRate;
+				if (reqs !== undefined) forced = 'ROUTINE';
+			}
 		}
 		if (board) {
 			board.world.totalBusinesses = agents.reduce((n, a) => n + a.p.businesses.length, 0);
@@ -269,7 +282,7 @@ export function run(over: Partial<Params> = {}): Result {
 			resolveEvents(agents, board, led, rng);
 			if (t % MISSIONS_PER_DAY === 0) payBizBonus(agents, board, led);
 		}
-		for (const a of agents) tick(a, t, led, rng, prm, board, rate);
+		for (const a of agents) tick(a, t, led, rng, prm, board, rate, forced);
 	}
 	return {
 		agents,

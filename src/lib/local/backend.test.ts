@@ -339,3 +339,20 @@ describe('workbench (idle)', () => {
 		expect(be).toBeDefined();
 	});
 });
+
+describe('fame migration', () => {
+	it('a v4 save turns per-line request counts into fame', async () => {
+		const { store, clock } = setup();
+		const d = JSON.parse(store.raw!);
+		d.version = 4;
+		d.player.reputation = 42;
+		delete d.player.fame;
+		d.player.jobs.HUNTING = { rank: 'EXPERT', jobMissions: 100, requestsDone: 30 };
+		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
+		const st = await old.get<{ fame: Record<string, number> }>('/state');
+		expect(st.fame.HUNTING).toBe(30);
+		expect(st.fame.TRANSPORT).toBe(0);
+		expect(old.game.data.version).toBe(5);
+		expect('reputation' in old.game.data.player).toBe(false);
+	});
+});

@@ -52,7 +52,7 @@ const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
 const RISKY: Line[] = ['HUNTING', 'SECURITY'];
-export const SAVE_VERSION = 4; // v4: 대기열 → 작업대
+export const SAVE_VERSION = 5; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */
 export class GameError extends Error {}
@@ -197,7 +197,7 @@ export function state(s: Session): Json {
 	return {
 		now: s.now,
 		money: Math.round(p.money * 100) / 100,
-		reputation: p.reputation,
+		fame: p.fame,
 		skills: p.skills,
 		jobs: Object.fromEntries(
 			Object.entries(p.jobs).map(([l, j]) => [
@@ -431,7 +431,6 @@ export function claim(s: Session): Json {
 			results.push({ run: r.id, ...settle(s, t, ref, rng, { reward: r.reward, rate: 1 }) });
 		}
 	}
-	p.reputation = Math.min(100, Object.values(p.jobs).reduce((n, j) => n + j!.requestsDone, 0));
 	return { claimed: results, money: Math.round(p.money * 100) / 100 };
 }
 
@@ -543,6 +542,13 @@ export function migrateSave(d: SaveData): SaveData {
 		d.workbench = wb.newWorkbench(d.townLastTick);
 		d.lastActive = d.townLastTick;
 		d.version = 4;
+	}
+	if (d.version === 4) {
+		// 평판(전체 의뢰 수) → 계열별 명성: 그 계열에서 끝낸 의뢰 수로 시작 (진행을 잃지 않게)
+		const p = d.player as Player & { reputation?: number };
+		p.fame = Object.fromEntries(LINES.map((l) => [l, Math.min(100, p.jobs[l]?.requestsDone ?? 0)])) as Player['fame'];
+		delete p.reputation;
+		d.version = 5;
 	}
 	return d;
 }

@@ -33,7 +33,7 @@ export interface Run {
 export interface PlayerState {
 	now: number;
 	money: number;
-	reputation: number;
+	fame: Record<string, number>;
 	skills: Record<string, { level: number; xp: number }>;
 	jobs: Record<string, { rank: string; job_missions: number; requests_done: number; missing: string[] }>;
 	equipment: string[];

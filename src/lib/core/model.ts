@@ -36,7 +36,7 @@ export interface RankRequirement {
 	fee: number;
 	job_missions: number;
 	requests_done: number;
-	reputation: number;
+	fame: number; // 해당 계열 명성
 }
 export const RANK_REQ = B.rank_req as Record<Exclude<Rank, 'APPRENTICE'>, RankRequirement>;
 
@@ -82,7 +82,7 @@ export interface Equipment {
 export interface Player {
 	id: string;
 	money: number;
-	reputation: number;
+	fame: Record<Line, number>; // 계열별 명성 0~100
 	skills: Record<Line, SkillState>;
 	jobs: Partial<Record<Line, JobState>>;
 	businesses: Line[];
@@ -94,13 +94,20 @@ export function newPlayer(id: string, money = 0): Player {
 	return {
 		id,
 		money,
-		reputation: 0,
+		fame: Object.fromEntries(LINES.map((l) => [l, 0])) as Record<Line, number>,
 		skills: Object.fromEntries(LINES.map((l) => [l, { level: 1, xp: 0 }])) as Record<Line, SkillState>,
 		jobs: {},
 		businesses: [],
 		equipment: [],
 		collection: []
 	};
+}
+
+/** 명성 규칙 (계열별): 의뢰 완료, 빠른 완료, 연계 이벤트 단계 */
+export const FAME_RULES = { ...B.fame };
+
+export function addFame(p: Player, line: Line, n: number): void {
+	p.fame[line] = Math.max(0, Math.min(FAME_RULES.max, (p.fame[line] ?? 0) + n));
 }
 
 export const hourlyPay = (job: JobState) => JOB_BASE_PAY * RANK_PAY_MULT[job.rank];
@@ -136,14 +143,15 @@ export function promoteMissing(p: Player, line: Line): string[] {
 	if (!job) return ['직업 없음'];
 	if (job.rank === 'CHIEF') return ['최고 직급'];
 	const req = RANK_REQ[RANKS[rankIndex(job.rank) + 1] as keyof typeof RANK_REQ];
-	const checks: [number, number, string][] = [
-		[p.skills[line].level, req.level, 'Lv'],
-		[p.money, req.fee, '자격 취득비 G'],
-		[job.jobMissions, req.job_missions, '직업 임무'],
-		[job.requestsDone, req.requests_done, '의뢰 완료'],
-		[p.reputation, req.reputation, '평판']
+	const checks: [number, number, string, string][] = [
+		[p.skills[line].level, req.level, 'Lv', ''],
+		[p.money, req.fee, '자격 취득비', ' G'],
+		[job.jobMissions, req.job_missions, '직업 임무', '건'],
+		[job.requestsDone, req.requests_done, '의뢰 완료', '건'],
+		[p.fame[line], req.fame, '명성', '']
 	];
-	return checks.filter(([have, need]) => have < need).map(([have, need, name]) => `${name} ${Math.floor(have)}/${need}`);
+	const n = (v: number) => Math.floor(v).toLocaleString('ko-KR');
+	return checks.filter(([have, need]) => have < need).map(([have, need, name, unit]) => `${name} ${n(have)}/${n(need)}${unit}`);
 }
 
 export function promote(p: Player, line: Line): Rank {

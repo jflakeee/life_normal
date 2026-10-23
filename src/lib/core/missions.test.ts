@@ -121,3 +121,39 @@ describe('processing', () => {
 		expect(Object.keys(market)).toEqual(expect.arrayContaining(['lumber', 'medicine', 'cut_meat', 'leather_goods']));
 	});
 });
+
+describe('fame', () => {
+	const hero = () => {
+		const p = newPlayer('hero');
+		p.equipment.push({ name: '중급', price: 1_500, durability: 1 });
+		for (const l of LINES.filter((x) => x !== 'COLLECTING')) p.jobs[l] = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+		return p;
+	};
+
+	it('a fast request gives +2 to that line, a chain step +3 more', () => {
+		const board = new Board(newTown(0));
+		const p = hero();
+		board.startChain('beast'); // 1단계: 유해 동물 퇴치 (의뢰)
+		const step = Object.values(board.town.postings).find((x) => x.chain)!;
+		board.complete(step.mission.id, p);
+		expect(p.fame.HUNTING).toBe(1 + 1 + 3);
+		expect(p.fame.TRANSPORT).toBe(0);
+	});
+
+	it('is capped at 100', async () => {
+		const { addFame } = await import('./model');
+		const p = newPlayer('p');
+		addFame(p, 'MEDICAL', 250);
+		expect(p.fame.MEDICAL).toBe(100);
+	});
+
+	it('chief promotion needs fame 80 in that line', async () => {
+		const { promoteMissing, RANK_REQ } = await import('./model');
+		const p = newPlayer('p', 1e9);
+		p.skills.SECURITY.level = 10;
+		p.jobs.SECURITY = { rank: 'EXPERT', jobMissions: 999, requestsDone: 999 };
+		expect(promoteMissing(p, 'SECURITY').join()).toContain('명성 0/80');
+		p.fame.SECURITY = RANK_REQ.CHIEF.fame;
+		expect(promoteMissing(p, 'SECURITY')).toEqual([]);
+	});
+});
