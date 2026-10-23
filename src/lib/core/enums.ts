@@ -1,4 +1,4 @@
-export const LINES = ['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY', 'COLLECTING'] as const;
+export const LINES = ['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY', 'ART', 'MUSIC', 'SPORT', 'COLLECTING'] as const;
 export type Line = (typeof LINES)[number];
 export const LINE_NAME: Record<Line, string> = {
 	TRANSPORT: '운송',
@@ -6,8 +6,14 @@ export const LINE_NAME: Record<Line, string> = {
 	CONSTRUCTION: '건축',
 	MEDICAL: '치료',
 	SECURITY: '보안',
+	ART: '예술',
+	MUSIC: '음악',
+	SPORT: '운동',
 	COLLECTING: '수집'
 };
+
+/** 사람들 앞에 서는 계열: 보상이 시세 대신 명성에 연동된다 */
+export const PERFORMANCE_LINES: readonly Line[] = ['ART', 'MUSIC', 'SPORT'];
 
 export const TIERS = ['HOBBY', 'JOB', 'BUSINESS'] as const;
 export type Tier = (typeof TIERS)[number];

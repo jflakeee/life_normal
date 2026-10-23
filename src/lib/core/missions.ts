@@ -7,7 +7,7 @@ import { DROP_P, obtain, roll, type Drop } from './collection';
 import B from './data/balance.json';
 import M from './data/missions.json';
 import { LINES, type Line, type MissionType, type Rank, type Tier } from './enums';
-import { addFame, availableTo, completeMission, FAME_RULES, price, type MarketEntry, type Mission, type Player } from './model';
+import { addFame, availableTo, completeMission, FAME_RULES, performanceBase, price, type MarketEntry, type Mission, type Player } from './model';
 import { Rng, type RngState } from './rng';
 
 const MB = B.missions;
@@ -242,7 +242,7 @@ export class Board {
 		const t = TEMPLATES[templateId];
 		if (t.type === 'EMERGENCY' && t.tier === 'JOB') return MB.emergency_job_reward;
 		if (t.process) return processReward(this.world, t.process);
-		let r = MB.tier_base_reward[t.tier] * MB.type_mult[t.type];
+		let r = MB.tier_base_reward[t.tier] * MB.type_mult[t.type] * performanceBase(t.line);
 		if (t.yieldItem) r *= priceRatio(this.world, t.yieldItem);
 		return Math.round(r);
 	}

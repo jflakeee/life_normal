@@ -7,6 +7,7 @@ import {
 	addFame,
 	BUSINESS_OPEN_COST,
 	hireWorker,
+	performanceBase,
 	rewardMult,
 	settlementRevenue,
 	upgradeBuilding,
@@ -46,7 +47,7 @@ import { Rng } from '$lib/core/rng';
 
 const REQUEST_PROB = 0.4; // 플레이어가 의뢰를 고르는 비율 (행동 가정)
 const GEAR_BY_RANK: Partial<Record<Rank, number>> = { APPRENTICE: 200, EXPERT: 1_500, CHIEF: 6_000 };
-const RISKY: Line[] = ['HUNTING', 'SECURITY'];
+const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT'];
 const MAX_BUSINESSES = 10;
 const EVENT_TAKE_P = 0.5;
 const YIELD_ITEMS: Partial<Record<Line, string[]>> = { CONSTRUCTION: ['wood', 'stone'], MEDICAL: ['herb'], HUNTING: ['meat', 'hide'] };
@@ -120,6 +121,8 @@ export interface Result {
 	medianHours(m: (typeof MILESTONES)[number]): number;
 	medianDays(m: (typeof MILESTONES)[number]): number;
 	tierIncome(t: Tier): number;
+	/** 계열 묶음별 취미·직업 순수입 평균 (사업 전) */
+	lineIncome(lines: readonly Line[]): number;
 }
 
 function median(xs: number[]): number {
@@ -139,7 +142,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 
 	// 1) 활동 수입 + 경험치
 	if (!job) {
-		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line);
+		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line) * performanceBase(line);
 		const items = YIELD_ITEMS[line];
 		if (board && items) gross *= items.reduce((s, i) => s + priceRatio(board.world, i), 0) / items.length;
 		const tax = gross * SALES_TAX;
@@ -156,7 +159,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
 			if (rankOk && gearOk) bonus = Math.max(bonus, processReward(world, t.process!));
 		}
-		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line)) * rate;
+		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line)) * rate;
 		p.money += pay;
 		led.earn('직업 급여', pay);
 		job.jobMissions++;
@@ -320,6 +323,16 @@ export function run(over: Partial<Params> = {}): Result {
 		reached: (m) => agents.filter((a) => a.milestones[m] !== undefined).length,
 		medianHours: (m) => median(agents.flatMap((a) => (a.milestones[m] !== undefined ? [a.milestones[m]!] : []))),
 		medianDays: (m) => median(agents.flatMap((a) => (a.days[m] !== undefined ? [a.days[m]!] : []))),
+		lineIncome: (ls) => {
+			let sum = 0,
+				n = 0;
+			for (const a of agents.filter((x) => ls.includes(x.line)))
+				for (const t of ['HOBBY', 'JOB'] as Tier[]) {
+					sum += a.income[t].sum;
+					n += a.income[t].n;
+				}
+			return n ? sum / n : NaN;
+		},
 		tierIncome: (t) => {
 			const b = agents.reduce((s, a) => ({ sum: s.sum + a.income[t].sum, n: s.n + a.income[t].n }), { sum: 0, n: 0 });
 			return b.n ? b.sum / b.n : NaN;

@@ -59,7 +59,7 @@ const START_MONEY = 100;
 const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
-const RISKY: Line[] = ['HUNTING', 'SECURITY'];
+const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT'];
 export const SAVE_VERSION = 6; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */

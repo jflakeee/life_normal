@@ -295,6 +295,200 @@
     "input": "hide",
     "output": "leather_goods"
    }
+  },
+  {
+   "id": "street_sketch",
+   "name": "거리 스케치",
+   "line": "ART",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "park_painting",
+   "name": "공원 풍경화",
+   "line": "ART",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "portrait_sketch",
+   "name": "초상화 스케치",
+   "line": "ART",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "signboard",
+   "name": "간판 그리기",
+   "line": "ART",
+   "tier": "JOB",
+   "type": "REQUEST"
+  },
+  {
+   "id": "mural",
+   "name": "벽화 의뢰",
+   "line": "ART",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "REGULAR"
+  },
+  {
+   "id": "gallery_show",
+   "name": "갤러리 기획전",
+   "line": "ART",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "busking",
+   "name": "버스킹",
+   "line": "MUSIC",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "choir",
+   "name": "동네 합창",
+   "line": "MUSIC",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "street_accompany",
+   "name": "거리 공연 반주",
+   "line": "MUSIC",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "event_gig",
+   "name": "행사 연주",
+   "line": "MUSIC",
+   "tier": "JOB",
+   "type": "REQUEST"
+  },
+  {
+   "id": "music_lesson",
+   "name": "음악 레슨",
+   "line": "MUSIC",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "REGULAR"
+  },
+  {
+   "id": "concert_series",
+   "name": "정기 공연",
+   "line": "MUSIC",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "jogging",
+   "name": "조깅",
+   "line": "SPORT",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "pickup_soccer",
+   "name": "동네 축구",
+   "line": "SPORT",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "basic_training",
+   "name": "기초 훈련",
+   "line": "SPORT",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "match",
+   "name": "경기 출전",
+   "line": "SPORT",
+   "tier": "JOB",
+   "type": "REQUEST"
+  },
+  {
+   "id": "exhibition_match",
+   "name": "시범 경기",
+   "line": "SPORT",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "EXPERT",
+   "gear": 1500
+  },
+  {
+   "id": "club_league",
+   "name": "구단 리그전",
+   "line": "SPORT",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "festival_concert",
+   "name": "축제 공연",
+   "line": "MUSIC",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "stage_decoration",
+   "name": "무대 장식",
+   "line": "ART",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "festival_guard",
+   "name": "축제 경비",
+   "line": "SECURITY",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "tournament_match",
+   "name": "대회 경기",
+   "line": "SPORT",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "spectator_shuttle",
+   "name": "관중 수송",
+   "line": "TRANSPORT",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "exhibit_entry",
+   "name": "전시 출품",
+   "line": "ART",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "artwork_delivery",
+   "name": "작품 배송",
+   "line": "TRANSPORT",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
+  },
+  {
+   "id": "exhibit_guard",
+   "name": "전시 경비",
+   "line": "SECURITY",
+   "tier": "JOB",
+   "type": "EMERGENCY",
+   "event_only": true
   }
  ],
  "chain": [
@@ -383,6 +577,109 @@
        "target": "lumber",
        "value": 2.0,
        "duration": 64
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "festival",
+   "name": "마을 축제",
+   "base_p": 0.002,
+   "crime": false,
+   "step": [
+    {
+     "template": "festival_concert",
+     "on_start": [
+      {
+       "kind": "SPAWN_BOOST",
+       "target": "TRANSPORT",
+       "value": 2.0,
+       "duration": 64
+      }
+     ]
+    },
+    {
+     "template": "stage_decoration"
+    },
+    {
+     "template": "festival_guard",
+     "on_done": [
+      {
+       "kind": "BIZ_BONUS",
+       "target": "MUSIC",
+       "value": 300,
+       "duration": 0
+      },
+      {
+       "kind": "BIZ_BONUS",
+       "target": "ART",
+       "value": 200,
+       "duration": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "sports_day",
+   "name": "체육 대회",
+   "base_p": 0.002,
+   "crime": false,
+   "step": [
+    {
+     "template": "tournament_match",
+     "on_start": [
+      {
+       "kind": "DEMAND",
+       "target": "meat",
+       "value": 1.5,
+       "duration": 64
+      },
+      {
+       "kind": "DEMAND",
+       "target": "cut_meat",
+       "value": 1.5,
+       "duration": 64
+      }
+     ]
+    },
+    {
+     "template": "field_treatment"
+    },
+    {
+     "template": "spectator_shuttle",
+     "on_done": [
+      {
+       "kind": "BIZ_BONUS",
+       "target": "SPORT",
+       "value": 300,
+       "duration": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "exhibition",
+   "name": "미술 전시회",
+   "base_p": 0.002,
+   "crime": false,
+   "step": [
+    {
+     "template": "exhibit_entry"
+    },
+    {
+     "template": "artwork_delivery"
+    },
+    {
+     "template": "exhibit_guard",
+     "on_done": [
+      {
+       "kind": "BIZ_BONUS",
+       "target": "ART",
+       "value": 300,
+       "duration": 0
       }
      ]
     }

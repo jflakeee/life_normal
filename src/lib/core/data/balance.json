@@ -150,5 +150,10 @@
    50000
   ],
   "reward_bonus": 0.05
+ },
+ "performance": {
+  "base_factor": 0.65,
+  "per_fame": 0.01,
+  "max_mult": 2.0
  }
 }

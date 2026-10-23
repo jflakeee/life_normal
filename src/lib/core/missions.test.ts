@@ -14,8 +14,8 @@ import {
 import { newPlayer } from './model';
 
 describe('missions', () => {
-	it('has 37 templates (가공 4개 포함)', () => {
-		expect(Object.keys(TEMPLATES)).toHaveLength(37);
+	it('has 63 templates (가공 4개, 새 계열 26개 포함)', () => {
+		expect(Object.keys(TEMPLATES)).toHaveLength(63);
 	});
 
 	it('every job has an entry-level routine mission', () => {
@@ -155,5 +155,42 @@ describe('fame', () => {
 		expect(promoteMissing(p, 'SECURITY').join()).toContain('명성 0/80');
 		p.fame.SECURITY = RANK_REQ.CHIEF.fame;
 		expect(promoteMissing(p, 'SECURITY')).toEqual([]);
+	});
+});
+
+describe('performance lines (art, music, sport)', () => {
+	it('every chain, old and new, runs to resolution', () => {
+		for (const chain of CHAINS) {
+			const board = new Board(newTown(1));
+			const p = newPlayer('hero');
+			p.equipment.push({ name: '중급', price: 1_500, durability: 1 });
+			for (const l of LINES.filter((x) => x !== 'COLLECTING')) p.jobs[l] = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+			board.startChain(chain.id);
+			for (let i = 0; i < chain.steps.length; i++) {
+				const step = Object.values(board.town.postings).find((x) => x.chain)!;
+				board.complete(step.mission.id, p);
+			}
+			expect(board.town.log.at(-1), chain.name).toMatch(/해결$/);
+		}
+	});
+
+	it('base reward is scaled down, then grows with fame up to ×2', async () => {
+		const { fameMult, rewardMult, PERFORMANCE } = await import('./model');
+		const board = new Board(newTown(0));
+		expect(board.rewardFor('busking')).toBe(Math.round(5 * PERFORMANCE.base_factor));
+		const p = newPlayer('p');
+		expect(fameMult(p, 'MUSIC')).toBe(1);
+		p.fame.MUSIC = 50;
+		expect(fameMult(p, 'MUSIC')).toBeCloseTo(1.5);
+		p.fame.MUSIC = 100;
+		expect(fameMult(p, 'MUSIC')).toBe(2);
+		p.fame.TRANSPORT = 100;
+		expect(rewardMult(p, 'TRANSPORT')).toBe(1); // 기존 계열은 명성과 무관
+	});
+
+	it('has 8 lines with buildings and 40 collectibles', async () => {
+		const { CATALOG } = await import('./collection');
+		expect(Object.keys(CATALOG)).toHaveLength(40);
+		for (const l of ['ART', 'MUSIC', 'SPORT'] as const) expect(Object.values(CATALOG).filter((c) => c.line === l)).toHaveLength(5);
 	});
 });

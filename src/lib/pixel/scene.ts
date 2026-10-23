@@ -4,7 +4,7 @@ import type { Line } from '$lib/core/enums';
 import { BUILDINGS, TILE, type SpriteName } from './atlas';
 
 export const W = 180;
-export const H = 120;
+export const H = 136; // 집 8채를 두 줄로 (위 5채, 길 아래 3채)
 export const FPS = 12;
 
 export interface DrawOp {
@@ -35,11 +35,16 @@ const HOUSE_GAP = 4;
 const BUILDING_LINES = Object.keys(BUILDINGS) as (keyof typeof BUILDINGS)[];
 
 /** 계열별 건물(또는 수집 터) 위치. 탭 판정에도 쓴다 */
+const ROW = 5; // 위 줄 집 수
 export const AREAS: Record<Line, Rect> = {
 	...(Object.fromEntries(
-		BUILDING_LINES.map((line, i) => [line, { x: 2 + i * (HOUSE_W + HOUSE_GAP), y: 8, w: HOUSE_W, h: 3 * TILE }])
+		BUILDING_LINES.map((line, i) => {
+			const col = i % ROW;
+			const y = i < ROW ? 8 : ROAD_Y + TILE + 8;
+			return [line, { x: 2 + col * (HOUSE_W + HOUSE_GAP), y, w: HOUSE_W, h: 3 * TILE }];
+		})
 	) as Record<keyof typeof BUILDINGS, Rect>),
-	COLLECTING: { x: 112, y: 86, w: 48, h: 32 }
+	COLLECTING: { x: 116, y: 96, w: 60, h: 36 }
 };
 
 /** 움직이지 않는 바탕: 풀, 길, 나무, 집, 지붕 장식 */
@@ -52,13 +57,12 @@ export function staticLayer(): DrawOp[] {
 		}
 	for (let c = 0; c * TILE < W; c++) ops.push({ sprite: `road.${c % 4}` as SpriteName, x: c * TILE, y: ROAD_Y });
 	for (const [sprite, x, y] of [
-		['tree.green', 4, 88],
-		['tree.orange', 22, 98],
-		['bush', 40, 90],
-		['tree.green', 70, 100],
-		['tree.orange', 164, 84],
-		['mushroom', 116, 96],
-		['mushroom', 136, 102]
+		['tree.green', 112, 78],
+		['bush', 132, 80],
+		['tree.orange', 160, 78],
+		['mushroom', 120, 104],
+		['mushroom', 142, 114],
+		['tree.green', 160, 110]
 	] as [SpriteName, number, number][])
 		ops.push({ sprite, x, y });
 	for (const line of BUILDING_LINES) {

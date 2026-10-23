@@ -56,3 +56,15 @@ describe('long-run recovery with workers and building upgrades', () => {
 		expect(r.recovery).toBeGreaterThanOrEqual(0.8);
 	}, 120_000);
 });
+
+describe('new lines earn like the old ones', () => {
+	it('art·music·sport income is within ±10% of the other lines', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const { PERFORMANCE_LINES } = await import('$lib/core/enums');
+		const I = B.idle;
+		const r = run({ seed: 2, daily: { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
+		const ratio = r.lineIncome(PERFORMANCE_LINES) / r.lineIncome(['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY']);
+		expect(ratio).toBeGreaterThan(0.9);
+		expect(ratio).toBeLessThan(1.1);
+	}, 60_000);
+});

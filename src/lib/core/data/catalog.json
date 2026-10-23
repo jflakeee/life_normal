@@ -149,6 +149,96 @@
    "name": "금고 열쇠",
    "line": "SECURITY",
    "rarity": "LEGENDARY"
+  },
+  {
+   "id": "old_brush",
+   "name": "닳은 붓",
+   "line": "ART",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "art_postcard",
+   "name": "명화 엽서",
+   "line": "ART",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "paint_tube",
+   "name": "물감 튜브",
+   "line": "ART",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "statue_shard",
+   "name": "조각상 파편",
+   "line": "ART",
+   "rarity": "RARE"
+  },
+  {
+   "id": "master_sketchbook",
+   "name": "거장의 스케치북",
+   "line": "ART",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "old_score",
+   "name": "낡은 악보",
+   "line": "MUSIC",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "guitar_pick",
+   "name": "기타 피크",
+   "line": "MUSIC",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "gig_poster",
+   "name": "공연 포스터",
+   "line": "MUSIC",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "silver_flute",
+   "name": "은 피리",
+   "line": "MUSIC",
+   "rarity": "RARE"
+  },
+  {
+   "id": "legend_record",
+   "name": "전설의 레코드",
+   "line": "MUSIC",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "old_sneakers",
+   "name": "낡은 운동화",
+   "line": "SPORT",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "signed_ball",
+   "name": "사인볼",
+   "line": "SPORT",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "bib_vest",
+   "name": "등번호 조끼",
+   "line": "SPORT",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "winner_medal",
+   "name": "우승 메달",
+   "line": "SPORT",
+   "rarity": "RARE"
+  },
+  {
+   "id": "first_trophy",
+   "name": "첫 대회 트로피",
+   "line": "SPORT",
+   "rarity": "LEGENDARY"
   }
  ]
 }

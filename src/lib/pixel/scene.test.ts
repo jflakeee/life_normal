@@ -15,7 +15,7 @@ describe('pixel atlas', () => {
 
 	it('every line has a place in town', () => {
 		for (const line of LINES) expect(AREAS[line], line).toBeDefined();
-		expect(Object.keys(BUILDINGS)).toHaveLength(5);
+		expect(Object.keys(BUILDINGS)).toHaveLength(8);
 	});
 });
 

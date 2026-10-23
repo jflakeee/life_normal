@@ -1,7 +1,7 @@
 /** 데이터 모델과 규칙. 수치는 data/balance.json. 상태는 순수 데이터라 그대로 저장할 수 있다. */
 import { xpMult } from './collection';
 import B from './data/balance.json';
-import { LINES, RANKS, rankIndex, type Line, type MissionType, type Rank, type Tier } from './enums';
+import { LINES, PERFORMANCE_LINES, RANKS, rankIndex, type Line, type MissionType, type Rank, type Tier } from './enums';
 
 export class RuleError extends Error {}
 
@@ -210,8 +210,15 @@ export function upgradeBuilding(p: Player, line: Line): number {
 	return p.buildings[line];
 }
 
+/** 예술·음악·운동: 기본 보상 배율과 명성 배율 (1 + 명성/100, 최대 ×2) */
+export const PERFORMANCE = { ...B.performance };
+export const performanceBase = (line: Line) => (PERFORMANCE_LINES.includes(line) ? PERFORMANCE.base_factor : 1);
+export const fameMult = (p: Player, line: Line) =>
+	PERFORMANCE_LINES.includes(line) ? Math.min(PERFORMANCE.max_mult, 1 + PERFORMANCE.per_fame * (p.fame[line] ?? 0)) : 1;
+
 /** 건물 레벨에 따른 그 계열 임무 보상 배율 */
-export const rewardMult = (p: Player, line: Line) => 1 + BUILDINGS_RULES.reward_bonus * (p.buildings[line] ?? 0);
+export const rewardMult = (p: Player, line: Line) =>
+	(1 + BUILDINGS_RULES.reward_bonus * (p.buildings[line] ?? 0)) * fameMult(p, line);
 
 export function onDeath(p: Player): number {
 	const loss = Math.max(p.money, 0) * DEATH_MONEY_LOSS + DEATH_MEDICAL_FEE;

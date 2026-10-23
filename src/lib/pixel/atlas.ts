@@ -49,6 +49,9 @@ export const SPRITES = {
 	'icon.potion': tile(104),
 	'icon.key': tile(117),
 	'icon.event': tile(95),
+	'icon.sign': tile(83), // 간판 → 예술
+	'icon.drum': tile(107), // 북 모양 항아리 → 음악
+	'icon.medal': tile(93), // 금화 → 메달, 운동
 	'player': { sheet: 'player', x: 0, y: 0, w: 16, h: 16 },
 	'npc': { sheet: 'npc', x: 0, y: 0, w: 16, h: 16 }
 } satisfies Record<string, Sprite>;
@@ -61,5 +64,8 @@ export const BUILDINGS: Record<Exclude<Line, 'COLLECTING'>, { roof: 'blue' | 're
 	HUNTING: { roof: 'blue', wall: 'wood', icon: 'icon.bow' },
 	CONSTRUCTION: { roof: 'red', wall: 'stone', icon: 'icon.hammer' },
 	MEDICAL: { roof: 'blue', wall: 'stone', icon: 'icon.potion' },
-	SECURITY: { roof: 'red', wall: 'stone', icon: 'icon.key' }
+	SECURITY: { roof: 'red', wall: 'stone', icon: 'icon.key' },
+	ART: { roof: 'blue', wall: 'wood', icon: 'icon.sign' },
+	MUSIC: { roof: 'red', wall: 'wood', icon: 'icon.drum' },
+	SPORT: { roof: 'blue', wall: 'stone', icon: 'icon.medal' }
 };
