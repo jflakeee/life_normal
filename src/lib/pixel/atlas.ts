@@ -32,10 +32,12 @@ export const SPRITES = {
 	'bush': tile(5),
 	'mushroom': tile(29),
 	'roof.blue.l': tile(48),
+	'roof.blue.dormer': tile(51), // 지붕창: 건물 확장 단계마다 하나씩
 	'roof.blue.r': tile(50),
 	'roof.blue.bl': tile(60),
 	'roof.blue.br': tile(62),
 	'roof.red.l': tile(52),
+	'roof.red.dormer': tile(55),
 	'roof.red.r': tile(54),
 	'roof.red.bl': tile(64),
 	'roof.red.br': tile(66),

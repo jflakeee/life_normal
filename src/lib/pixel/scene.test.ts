@@ -60,3 +60,11 @@ describe('pixel scene', () => {
 		expect(nightAlpha(7)).toBeGreaterThan(nightAlpha(5));
 	});
 });
+
+describe('building upgrades in town', () => {
+	it('adds one dormer per upgrade level', () => {
+		const dormers = (lv: number) =>
+			staticLayer({ HUNTING: lv }).filter((o) => o.sprite.endsWith('.dormer') && o.y === AREAS.HUNTING.y && o.x >= AREAS.HUNTING.x && o.x < AREAS.HUNTING.x + AREAS.HUNTING.w);
+		expect([0, 1, 2].map((lv) => dormers(lv).length)).toEqual([0, 1, 2]);
+	});
+});

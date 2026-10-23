@@ -20,14 +20,14 @@
 			(game.resting ? undefined : (game.slots.find((s) => s.template)?.line as Line | undefined)) ??
 			null,
 		eventLines: game.chainPostings.map((p) => p.line as Line),
-		townTick: game.player?.town_tick ?? 0
+		townTick: game.player?.town_tick ?? 0,
+		levels: (game.player?.buildings ?? {}) as SceneState['levels']
 	});
 
 	onMount(() => {
 		const ctx = canvas!.getContext('2d')!;
 		const images = {} as Record<SheetName, HTMLImageElement>;
 		let loaded = 0;
-		const bg = staticLayer();
 		const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 		let visible = true;
 		let raf = 0;
@@ -42,7 +42,7 @@
 		const render = (t: number) => {
 			if (loaded < Object.keys(SHEETS).length) return;
 			ctx.imageSmoothingEnabled = false;
-			draw(bg);
+			draw(staticLayer(scene.levels));
 			draw(dynamicLayer(scene, reduced ? 0 : t));
 			const a = nightAlpha(scene.townTick);
 			if (a) {
@@ -78,6 +78,7 @@
 				void scene.activeLine;
 				void scene.eventLines.length;
 				void scene.townTick;
+				void JSON.stringify(scene.levels);
 				if (reduced) render(0);
 			});
 		});

@@ -9,6 +9,15 @@ type GameEvent = ServerEvent &
 	| { type: 'market.changed' }
 	| { type: 'settlement.ready' });
 
+export interface AwayReport {
+	seconds: number;
+	pending: number;
+	events: string[];
+	result?: { gained: number; levels: string[]; drops: string[] };
+}
+
+const AWAY_MIN_SECONDS = 30 * 60;
+
 export class Game {
 	catalog = $state<Catalog | null>(null);
 	player = $state<PlayerState | null>(null);
@@ -18,6 +27,8 @@ export class Game {
 	toast = $state<string | null>(null);
 	busy = $state(false);
 	online = $state(true);
+	/** 돌아왔을 때 요약 (30분 넘게 비웠고 받을 것이나 소식이 있을 때) */
+	away = $state<AwayReport | null>(null);
 	/** 서버 시각 기준 현재 (1초마다 갱신) */
 	now = $state(0);
 
@@ -30,6 +41,9 @@ export class Game {
 		await this.api.login();
 		this.catalog = await this.api.get<Catalog>('/catalog');
 		await this.refresh();
+		const a = this.player!.away;
+		if (a.seconds >= AWAY_MIN_SECONDS && (this.claimable > 0 || a.events.length))
+			this.away = { seconds: a.seconds, pending: this.claimable, events: a.events };
 		setInterval(() => (this.now = Date.now() / 1000 + this.offset), 1000);
 		// 알림 연결이 끊겨 있는 동안에는 30초마다 직접 상태를 받는다
 		setInterval(() => {
@@ -179,6 +193,23 @@ export class Game {
 			const r = await this.api.command<{ settled: number; net?: number }>('POST', '/businesses/collect');
 			this.say(r.settled ? `정산 ${r.settled}회 · ${Math.round(r.net ?? 0)} G` : '받을 정산이 없습니다');
 		});
+	}
+
+	/** 돌아왔을 때 화면에서 한 번에 받기: 받은 돈, 오른 레벨, 새 도감을 함께 보여 준다 */
+	async claimAway(): Promise<void> {
+		const before = this.player!;
+		const lv = Object.fromEntries(Object.entries(before.skills).map(([l, s]) => [l, s.level]));
+		try {
+			const r = await this.api.command<{ claimed: { drop?: { name: string; registered: boolean } }[]; money: number }>('POST', '/claims');
+			await this.refresh();
+			const levels = Object.entries(this.player!.skills)
+				.filter(([l, s]) => s.level > lv[l])
+				.map(([l, s]) => `${this.catalog!.lines[l]} Lv ${s.level}`);
+			const drops = r.claimed.flatMap((c) => (c.drop?.registered ? [c.drop.name] : []));
+			if (this.away) this.away.result = { gained: r.money - before.money, levels, drops };
+		} catch (e) {
+			this.say(e instanceof ApiError ? e.message : '받지 못했어요');
+		}
 	}
 
 	// ── 세이브 이동 ───────────────────────────────────

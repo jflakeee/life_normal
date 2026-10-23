@@ -121,6 +121,8 @@ export function newSave(now: number, seed: string): SaveData {
 /** 한 명령이 다루는 작업용 사본 */
 export class Session {
 	readonly board: Board;
+	/** 이번 접속 직전까지 자리를 비운 시간과 그 사이 마을 소식 (돌아왔을 때 화면용) */
+	readonly away: { seconds: number; events: string[] };
 
 	constructor(
 		readonly d: SaveData,
@@ -128,9 +130,15 @@ export class Session {
 		readonly tz = 0 // 기기 시간대 (Date#getTimezoneOffset, 분)
 	) {
 		this.board = new Board(d.town);
+		const logBefore = d.town.logTotal;
 		const n = Math.floor((now - d.townLastTick) / TICK_SECONDS);
 		for (let i = 0; i < Math.min(n, MAX_CATCHUP_TICKS); i++) this.board.update();
 		d.townLastTick += n * TICK_SECONDS;
+		const fresh = d.town.logTotal - logBefore;
+		this.away = {
+			seconds: Math.max(0, now - d.lastActive),
+			events: (fresh > 0 ? d.town.log.slice(-fresh) : []).map((l) => l.split('] ').slice(1).join('] '))
+		};
 		wb.advance(d.workbench, wb.unlockedSlots(d.player), now, d.lastActive, TICK_SECONDS, tz);
 		d.lastActive = now;
 	}
@@ -221,6 +229,7 @@ export function state(s: Session): Json {
 		pending_settlements: pendingSettlements(s),
 		queue: runs,
 		workbench: workbenchState(s),
+		away: s.away,
 		claimable: runs.filter((r) => r.done).length + s.d.workbench.slots.reduce((n, x) => n + x.pending.length, 0),
 		town_tick: s.board.world.tick
 	};

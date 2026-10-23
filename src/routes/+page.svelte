@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import AwaySheet from '$lib/components/AwaySheet.svelte';
 	import { gold } from '$lib/format';
 	import { Game } from '$lib/game.svelte';
 	import { createLocalBackend } from '$lib/local/backend';
@@ -38,12 +39,12 @@
 	}
 </script>
 
-<header>
+<header inert={!!game.away}>
 	<h1>동네 임무</h1>
 	{#if game.player}<span class="money num">{gold(game.player.money)}</span>{/if}
 </header>
 
-<main>
+<main inert={!!game.away}>
 	{#if failed}
 		<div class="panel stack">
 			<h2>게임을 불러오지 못했어요</h2>
@@ -67,8 +68,9 @@
 
 {#if !game.online}<p class="offline">연결이 끊겼어요. 다시 연결하는 중</p>{/if}
 {#if game.toast}<p class="toast" role="status">{game.toast}</p>{/if}
+{#if game.away}<AwaySheet {game} />{/if}
 
-<nav aria-label="탭">
+<nav aria-label="탭" inert={!!game.away}>
 	{#each TABS as t (t.id)}
 		<button class:on={tab === t.id} aria-current={tab === t.id ? 'page' : undefined} onclick={() => go(t.id)}>
 			{t.name}
@@ -96,14 +98,12 @@
 		z-index: 10;
 		background: var(--paper);
 	}
-	h1 {
-		font-size: 20px;
-		font-weight: 800;
-		letter-spacing: -0.02em;
-	}
+	h1,
 	.money {
-		font-size: 17px;
+		font-family: var(--pixel-title);
+		font-size: 22px;
 		font-weight: 700;
+		line-height: 1;
 	}
 	main {
 		max-width: 560px;

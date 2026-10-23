@@ -46,6 +46,7 @@ export interface PlayerState {
 	pending_settlements: number;
 	queue: Run[];
 	workbench: WorkbenchState;
+	away: { seconds: number; events: string[] };
 	claimable: number;
 	town_tick: number;
 }

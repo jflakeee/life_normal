@@ -21,3 +21,11 @@ export const RANK_NAME: Record<string, string> = {
 };
 
 export const TYPE_NAME: Record<string, string> = { ROUTINE: '상시', REQUEST: '의뢰', EMERGENCY: '돌발' };
+
+/** 초 → "3시간 12분" */
+export function duration(seconds: number): string {
+	const m = Math.floor(seconds / 60);
+	const h = Math.floor(m / 60);
+	if (h === 0) return `${m}분`;
+	return m % 60 ? `${h}시간 ${m % 60}분` : `${h}시간`;
+}

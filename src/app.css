@@ -1,3 +1,16 @@
+/* 픽셀 글꼴: 갈무리 (SIL OFL 1.1, src/lib/fonts/OFL.md). 게임에 쓰인 글자만 남긴 부분 집합 */
+@font-face {
+	font-family: 'Galmuri11';
+	src: url('./lib/fonts/galmuri11-bold.woff2') format('woff2');
+	font-weight: 700;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Galmuri14';
+	src: url('./lib/fonts/galmuri14.woff2') format('woff2');
+	font-display: swap;
+}
+
 /* 동네 임무: 세이지 종이 + 소나무 글자, 우체통 파랑(행동), 인주(완료 도장), 겨자(사건) */
 :root {
 	color-scheme: light;
@@ -12,6 +25,9 @@
 	--event: #a87a0e;
 	--event-bg: #f6ecd2;
 	--font: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+	/* 픽셀 글꼴은 정수배 크기에서만 또렷하다: Galmuri11 → 22px, Galmuri14 → 14px */
+	--pixel-title: 'Galmuri11', var(--font);
+	--pixel-text: 'Galmuri14', var(--font);
 	--tabbar: 60px;
 	box-sizing: border-box;
 	padding-top: env(safe-area-inset-top, 0px);
@@ -68,9 +84,10 @@ p {
 	margin: 0;
 }
 h2 {
-	font-size: 17px;
-	font-weight: 700;
-	letter-spacing: -0.01em;
+	font-family: var(--pixel-text);
+	font-size: 14px;
+	font-weight: 400;
+	line-height: 1.6;
 }
 .num {
 	font-variant-numeric: tabular-nums;

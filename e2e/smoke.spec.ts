@@ -87,3 +87,29 @@ test('홈에 픽셀 마을이 그려지고, 건물을 누르면 임무 탭으로
 	await expect(page).toHaveURL(/#missions$/);
 	await expect(page.getByText(/^작업대:/)).toBeVisible();
 });
+
+test('자리를 비웠다 돌아오면 요약이 뜨고, 한 번에 받으면 결과를 보여 준다', async ({ page }) => {
+	await page.goto('./#missions');
+	await page.getByRole('listitem').filter({ hasText: '소포 배달' }).getByRole('button', { name: '작업대 1에 올리기' }).click();
+	await expect(page.getByText('작업대: 1 소포 배달')).toBeVisible();
+	// 2시간 자리를 비운 것처럼 저장 상태의 시각을 되돌린다
+	await page.evaluate(() => {
+		const d = JSON.parse(localStorage.getItem('dm.save')!);
+		for (const s of d.workbench.slots) s.lastTick -= 7200;
+		d.lastActive -= 7200;
+		localStorage.setItem('dm.save', JSON.stringify(d));
+	});
+	await page.goto('./#home');
+	await page.reload();
+	const sheet = page.getByRole('dialog', { name: /자리를 비운 동안 · 2시간/ });
+	await expect(sheet).toBeVisible();
+	await expect(sheet.getByText('끝낸 작업 40건')).toBeVisible();
+	// 시트가 열려 있는 동안 뒤 화면은 비활성 (화면 낭독기·키보드가 닿지 않음)
+	await expect(page.locator('main button.primary')).not.toBeFocused();
+	await expect(page.locator('main')).toHaveAttribute('inert', '');
+	await sheet.getByRole('button', { name: '한 번에 받기' }).click();
+	await expect(sheet.getByText(/받은 돈 \+\d+ G/)).toBeVisible();
+	await sheet.getByRole('button', { name: '확인' }).click();
+	await expect(sheet).toBeHidden();
+	await expect(page.getByRole('button', { name: '받을 보상 없음' })).toBeDisabled();
+});

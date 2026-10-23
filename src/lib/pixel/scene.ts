@@ -27,6 +27,8 @@ export interface SceneState {
 	eventLines: Line[];
 	/** 마을 틱 (8틱 = 1게임일, 낮밤에 쓴다) */
 	townTick: number;
+	/** 계열 건물 확장 단계 (0~2): 단계마다 지붕창이 하나씩 생긴다 */
+	levels?: Partial<Record<Line, number>>;
 }
 
 const ROAD_Y = 60;
@@ -47,8 +49,8 @@ export const AREAS: Record<Line, Rect> = {
 	COLLECTING: { x: 116, y: 96, w: 60, h: 36 }
 };
 
-/** 움직이지 않는 바탕: 풀, 길, 나무, 집, 지붕 장식 */
-export function staticLayer(): DrawOp[] {
+/** 움직이지 않는 바탕: 풀, 길, 나무, 집(확장 단계별 지붕창), 지붕 장식 */
+export function staticLayer(levels: Partial<Record<Line, number>> = {}): DrawOp[] {
 	const ops: DrawOp[] = [];
 	for (let r = 0; r * TILE < H; r++)
 		for (let c = 0; c * TILE < W; c++) {
@@ -68,9 +70,10 @@ export function staticLayer(): DrawOp[] {
 	for (const line of BUILDING_LINES) {
 		const { x, y } = AREAS[line];
 		const b = BUILDINGS[line];
+		const lv = levels[line] ?? 0;
 		ops.push(
-			{ sprite: `roof.${b.roof}.l` as SpriteName, x, y },
-			{ sprite: `roof.${b.roof}.r` as SpriteName, x: x + TILE, y },
+			{ sprite: `roof.${b.roof}.${lv >= 1 ? 'dormer' : 'l'}` as SpriteName, x, y },
+			{ sprite: `roof.${b.roof}.${lv >= 2 ? 'dormer' : 'r'}` as SpriteName, x: x + TILE, y },
 			{ sprite: `roof.${b.roof}.bl` as SpriteName, x, y: y + TILE },
 			{ sprite: `roof.${b.roof}.br` as SpriteName, x: x + TILE, y: y + TILE },
 			{ sprite: `wall.${b.wall}.window` as SpriteName, x, y: y + 2 * TILE },

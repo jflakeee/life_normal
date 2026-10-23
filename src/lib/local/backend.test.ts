@@ -417,3 +417,18 @@ describe('workers and buildings (long-run sinks)', () => {
 		expect(st.buildings.HUNTING).toBe(0);
 	});
 });
+
+describe('coming back (away report)', () => {
+	it('reports how long you were away and what happened in town', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
+		be.game.query((s) => s.board.startChain('storm')); // 자리 비우기 전에 생긴 일은 소식에 들지 않는다
+		advance(3 * 3600);
+		const st = await be.get<{ away: { seconds: number; events: string[] }; claimable: number }>('/state');
+		expect(st.away.seconds).toBe(3 * 3600);
+		expect(st.claimable).toBe(60);
+		expect(st.away.events.every((e) => !e.startsWith('['))).toBe(true); // 틱 표기 없이 읽기 좋은 문장
+		const again = await be.get<{ away: { seconds: number } }>('/state');
+		expect(again.away.seconds).toBe(0); // 다시 보면 방금 접속한 것
+	});
+});

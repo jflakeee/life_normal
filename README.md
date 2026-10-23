@@ -36,7 +36,7 @@ npx playwright install chromium && npm run e2e         # 하위 경로 빌드로
 
 ## 그래픽
 
-지금은 Kenney의 CC0 무료 픽셀 에셋을 쓴다 (출처: ASSETS.md). 직접 그린 아트로 바꿀 때는 `src/lib/pixel/assets/`의 PNG와 `atlas.ts` 좌표만 바꾸면 된다.
+지금은 Kenney의 CC0 무료 픽셀 에셋과 갈무리 픽셀 글꼴(OFL)을 쓴다 (출처: ASSETS.md). 화면 문구에 새 한글을 쓰면 `npm run fonts`로 글꼴 부분 집합을 다시 만든다. 직접 그린 아트로 바꿀 때는 `src/lib/pixel/assets/`의 PNG와 `atlas.ts` 좌표만 바꾸면 된다.
 
 ## 수치를 바꿀 때
 
