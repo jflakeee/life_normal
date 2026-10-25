@@ -51,6 +51,7 @@ import {
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
 import * as wb from './workbench';
+import { addNotoriety, arrest, arrestChance, decayNotoriety, isBanned, isWanted, markChecked, notoriety, OUTLAW } from '$lib/core/outlaw';
 import {
 	ACTION_PREFIX,
 	ACTION_RULES,
@@ -164,6 +165,7 @@ export class Session {
 		};
 		wb.advance(d.workbench, wb.unlockedSlots(d.player), now, d.lastActive, TICK_SECONDS, tz);
 		d.lastActive = now;
+		decayNotoriety(d.player, now);
 	}
 
 	get p(): Player {
@@ -237,6 +239,7 @@ export function state(s: Session): Json {
 		now: s.now,
 		money: Math.round(p.money * 100) / 100,
 		fame: p.fame,
+		notoriety: { value: notoriety(p), wanted: isWanted(p), ban_until: p.notoriety?.banUntil ?? null },
 		actions: Object.fromEntries(
 			Object.values(ACTIONS).map((a) => {
 				const st = p.actions?.[a.id] ?? { level: 1, xp: 0 };
@@ -335,7 +338,8 @@ export function catalog(): Json {
 				min_rank: t.minRank,
 				gear: t.gear,
 				process: t.process && { input: ITEM_NAMES[t.process.input], output: ITEM_NAMES[t.process.output] },
-				jobs: t.jobs
+				jobs: t.jobs,
+				outlaw: t.outlaw
 			})),
 		shop: SHOP,
 		repair_rate: REPAIR_RATE,
@@ -418,6 +422,7 @@ export function setWork(s: Session, index: number, templateId: string): Json {
 	}
 	const t = TEMPLATES[templateId];
 	if (!t || t.type !== 'ROUTINE') throw new GameError('작업대에는 상시 임무만 올릴 수 있습니다');
+	banCheck(s, t);
 	const probe = { id: 'probe', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear, jobs: t.jobs };
 	if (!availableTo(probe, s.p)) throw new GameError('조건 미충족 (직업 또는 장비)');
 	Object.assign(slot, { template: templateId, progress: 0, lastTick: s.now, tapUsed: 0 });
@@ -438,7 +443,16 @@ export function tapWork(s: Session, index: number): Json {
 	return { slot: index, next_in: TICK_SECONDS - slot.progress, tap_left: wb.TAP_MAX_PER_RUN - slot.tapUsed };
 }
 
+function banCheck(s: Session, t: MissionTemplate): void {
+	if (t.outlaw && isBanned(s.p, s.now)) {
+		const h = Math.ceil((s.p.notoriety!.banUntil! - s.now) / 3600);
+		throw new GameError(`체포되어 ${h}시간 동안 해적 일을 할 수 없어요`);
+	}
+}
+
 export function accept(s: Session, postingId: string): Json {
+	const posting = s.d.town.postings[postingId];
+	if (posting) banCheck(s, TEMPLATES[posting.template]);
 	if (s.d.runs.some((r) => r.source === 'board')) throw new GameError('의뢰·돌발은 한 번에 하나만 진행할 수 있습니다');
 	const x = rule(() => s.board.accept(postingId, s.p));
 	const id = s.d.nextRunId++;
@@ -447,7 +461,14 @@ export function accept(s: Session, postingId: string): Json {
 }
 
 /** 끝난 작업 한 건을 정산한다: 보상, 경험치, 도감, 세금·급여, 위험, 수리 */
-function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { reward: number; rate: number } | { postingId: string }): Json {
+function settle(
+	s: Session,
+	t: MissionTemplate,
+	ref: string,
+	rng: Rng,
+	how: { reward: number; rate: number } | { postingId: string },
+	at: number = s.now
+): Json {
 	const p = s.p;
 	const before = p.money;
 	let drop;
@@ -487,6 +508,7 @@ function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { re
 	}
 	if (drop) item.drop = { name: drop.item.name, registered: drop.registered, sold_for: sold };
 	Object.assign(item, risk(s, rng, t.line, t.tier === 'HOBBY', ref));
+	if (t.outlaw) Object.assign(item, outlawAfter(s, rng, at, ref));
 	s.d.missionsDone++;
 	if (s.d.missionsDone % MISSIONS_PER_DAY === 0 && p.equipment.length)
 		s.pay('repair', -Math.max(...p.equipment.map(repairCost)), ref);
@@ -509,6 +531,20 @@ function settleAction(s: Session, id: string, rate: number, at: number, ref: str
 	return { name: ACTIONS[id].name, reward: R.reward * rate, rate, action: id, level_up: lv > 0 };
 }
 
+/** 무법 임무 뒤: 악명 +2, 수배 중이면 그날 첫 습격에 형사 추적 판정 (벌금, 해적 일 금지, 작업대의 해적 일 멈춤) */
+function outlawAfter(s: Session, rng: Rng, at: number, ref: string): Json {
+	const p = s.p;
+	addNotoriety(p, OUTLAW.notoriety_per, at);
+	const day = wb.dayKey(at, s.tz);
+	const chance = arrestChance(p, day);
+	markChecked(p, day);
+	if (rng.next() >= chance) return { notoriety: notoriety(p) };
+	const fine = s.track('fine', ref, () => arrest(p, at));
+	for (const slot of s.d.workbench.slots)
+		if (slot.template && TEMPLATES[slot.template]?.outlaw) Object.assign(slot, { template: null, progress: 0, tapUsed: 0 });
+	return { arrested: true, fine: Math.round(fine), notoriety: notoriety(p) };
+}
+
 export function claim(s: Session): Json {
 	const p = s.p;
 	const results: Json[] = [];
@@ -523,8 +559,12 @@ export function claim(s: Session): Json {
 		}
 		const t = TEMPLATES[w.template];
 		const ref = `work:${w.slot}:${w.at}`;
+		if (t.outlaw && isBanned(p, w.at)) {
+			results.push({ name: t.name, reward: 0, confiscated: true }); // 체포된 뒤 끝난 습격은 압수
+			continue;
+		}
 		const reward = Math.round(s.board.rewardFor(w.template) * w.rate * rewardMult(p, t.line));
-		results.push(settle(s, t, ref, new Rng(`${p.id}:${ref}`), { reward, rate: w.rate }));
+		results.push(settle(s, t, ref, new Rng(`${p.id}:${ref}`), { reward, rate: w.rate }, w.at));
 	}
 	for (const slot of s.d.workbench.slots) slot.pending = [];
 	// 의뢰·돌발 (그리고 v3 세이브에서 넘어온 대기열 임무)

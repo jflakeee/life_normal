@@ -215,7 +215,7 @@
    "name": "대장장이",
    "line": "MINING",
    "entry": false,
-   "pay_mult": 1.15,
+   "pay_mult": 1.1,
    "requires": {
     "from": "miner",
     "rank": "REGULAR"
@@ -240,6 +240,37 @@
    "pay_mult": 1.0,
    "actions": {
     "explore": 2
+   }
+  },
+  {
+   "id": "treasure_hunter",
+   "name": "보물 사냥꾼",
+   "line": "SEA",
+   "entry": false,
+   "pay_mult": 1.0,
+   "requires": {
+    "from": "fisher",
+    "rank": "REGULAR"
+   },
+   "actions": {
+    "explore": 4,
+    "observe": 3
+   }
+  },
+  {
+   "id": "pirate",
+   "name": "해적",
+   "line": "SEA",
+   "entry": false,
+   "pay_mult": 1.0,
+   "outlaw": true,
+   "requires": {
+    "from": "fisher",
+    "rank": "REGULAR"
+   },
+   "actions": {
+    "explore": 4,
+    "exercise": 3
    }
   }
  ],

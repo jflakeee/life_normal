@@ -1,5 +1,6 @@
 /** 데이터 모델과 규칙. 수치는 data/balance.json. 상태는 순수 데이터라 그대로 저장할 수 있다. */
 import { actionMissing, type ActionState, type HabitState } from './actions';
+import type { Notoriety } from './outlaw';
 import { xpMult } from './collection';
 import { entryJob, jobPayMult, JOBS, rankAfterTransfer, transferFee, transferMissing } from './jobs';
 import B from './data/balance.json';
@@ -101,6 +102,7 @@ export interface Player {
 	collection: string[];
 	actions?: Record<string, ActionState>; // 일상 행동 숙련
 	habits?: Record<string, HabitState>; // 습관 (연속 일수)
+	notoriety?: Notoriety; // 악명 (해적)
 }
 
 export function newPlayer(id: string, money = 0): Player {
@@ -257,6 +259,7 @@ export interface Outcome {
 	label: string | null; // '걸작', '좋은 작품', '승리', '패배' (보통 작품은 null)
 }
 const AQ = B.art_quality;
+const TR = B.treasure;
 const SM = B.sport_match;
 
 /** 예술 레벨별 작품 품질 확률 */
@@ -276,6 +279,11 @@ export function performanceOutcome(next: () => number, p: Player, line: Line, te
 		if (r < c.masterpiece) return { mult: AQ.mult.MASTERPIECE, fame: AQ.masterpiece_fame, label: '걸작' };
 		if (r < c.masterpiece + c.great) return { mult: AQ.mult.GREAT, fame: 0, label: '좋은 작품' };
 		return { mult: AQ.mult.NORMAL, fame: 0, label: null };
+	}
+	if (TR.templates.includes(templateId)) {
+		return next() < TR.find_p
+			? { mult: TR.find_mult, fame: TR.find_fame, label: '보물 발견' }
+			: { mult: TR.miss_mult, fame: 0, label: null };
 	}
 	if (line === 'SPORT' && SM.templates.includes(templateId)) {
 		return next() < matchWinChance(p.skills.SPORT.level)

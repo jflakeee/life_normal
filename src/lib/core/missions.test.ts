@@ -14,8 +14,8 @@ import {
 import { availableTo, newPlayer } from './model';
 
 describe('missions', () => {
-	it('has 83 templates (가공 4개, 새 계열 26개, 생산 계열 20개 포함)', () => {
-		expect(Object.keys(TEMPLATES)).toHaveLength(83);
+	it('has 87 templates (가공 4개, 새 계열 26개, 생산 계열 20개, 보물·해적 4개 포함)', () => {
+		expect(Object.keys(TEMPLATES)).toHaveLength(87);
 	});
 
 	it('every job has an entry-level routine mission', () => {

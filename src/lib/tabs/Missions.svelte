@@ -71,7 +71,7 @@
 					<div>
 						<h2>{t.name}</h2>
 						<p class="quiet">
-							{lines[t.line]}{t.tier === 'JOB' ? ' 직업' : ''}{t.process ? ` · ${t.process.input} → ${t.process.output}` : ''}
+							{lines[t.line]}{t.tier === 'JOB' ? ' 직업' : ''}{t.process ? ` · ${t.process.input} → ${t.process.output}` : ''}{t.outlaw ? ' · 무법 (악명 +2)' : ''}
 						</p>
 					</div>
 					<div class="put">

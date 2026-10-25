@@ -106,3 +106,29 @@ describe('production lines (농업·광업·해양)', () => {
 		}
 	}, 120_000);
 });
+
+describe('treasure hunter and pirate (해양 갈림길)', () => {
+	it('both earn like the other risky lines; the pirate is caught about once a week', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const I = B.idle;
+		let pir = 0, th = 0, risky = 0, arrests = 0, n = 0;
+		for (const seed of [1, 2]) {
+			const r = run({ seed, daily: { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
+			risky += (r.lineIncome(['HUNTING']) + r.lineIncome(['SECURITY']) + r.lineIncome(['SPORT'])) / 3 / 2;
+			th += r.jobIncome('treasure_hunter') / 2;
+			const p = r.jobIncome('pirate');
+			if (!Number.isNaN(p)) {
+				pir += p;
+				n++;
+			}
+			const ps = r.agents.filter((a) => a.p.jobs.SEA?.job === 'pirate');
+			arrests += ps.reduce((s, a) => s + a.arrests, 0) / Math.max(1, ps.length) / 2;
+		}
+		for (const [name, v] of [['보물 사냥꾼', th], ['해적', pir / n]] as const) {
+			expect(v / risky, name).toBeGreaterThan(0.85);
+			expect(v / risky, name).toBeLessThan(1.15);
+		}
+		expect(arrests).toBeGreaterThan(3);
+		expect(arrests).toBeLessThan(15);
+	}, 180_000);
+});

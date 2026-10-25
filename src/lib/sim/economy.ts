@@ -49,6 +49,7 @@ import {
 import { Rng } from '$lib/core/rng';
 import { entryJob, jobPayMult, jobRewardMult, jobsOf, transferMissing } from '$lib/core/jobs';
 import { ACTION_RULES, activeSpread, addActionXp, missingActionIds } from '$lib/core/actions';
+import { OUTLAW } from '$lib/core/outlaw';
 
 const REQUEST_PROB = 0.4; // 플레이어가 의뢰를 고르는 비율 (행동 가정)
 const GEAR_BY_RANK: Partial<Record<Rank, number>> = { APPRENTICE: 200, EXPERT: 1_500, CHIEF: 6_000 };
@@ -93,6 +94,12 @@ interface Agent {
 	bizDue: number;
 	jobIncome: Record<string, { sum: number; n: number }>;
 	actionsDone: number;
+	outlawPref: boolean; // 해양에서 해적 쪽을 고르는 플레이어
+	notoriety: number;
+	notorietyDay: number;
+	banDay: number;
+	checkedDay: number;
+	arrests: number;
 }
 
 export interface Params {
@@ -159,7 +166,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	const mtype: MissionType = forced ?? (rng.next() < REQUEST_PROB ? 'REQUEST' : 'ROUTINE');
 	let tier: Tier;
 	// 직업·상위 직종에 필요한 행동이 모자라면 이번 건은 그 행동을 한다 (2 G, 행동 경험, 취미 경험 배분)
-	const needed = neededActions(p, line, prm);
+	const needed = neededActions(p, line, prm, a);
 	if (needed) {
 		const R = ACTION_RULES;
 		p.money += R.reward * rate;
@@ -169,7 +176,9 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 		a.actionsDone++;
 	}
 	// 예술 작품 품질, 운동 경기 승패 (경기는 의뢰일 때)
-	const outcome = needed ? { mult: 1, fame: 0, label: null } : performanceOutcome(() => rng.next(), p, line, mtype === 'REQUEST' ? 'match' : 'routine');
+	const outcome = needed
+		? { mult: 1, fame: 0, label: null }
+		: performanceOutcome(() => rng.next(), p, line, job?.job === 'treasure_hunter' ? 'wreck_dive' : mtype === 'REQUEST' ? 'match' : 'routine');
 	if (outcome.fame) addFame(p, line, outcome.fame);
 
 	// 1) 활동 수입 + 경험치 (행동을 한 건이면 건너뛴다)
@@ -198,6 +207,27 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 				}
 			}
 			if (processed) job.processDone++;
+			// 해적: 금지 중이 아니면 습격 (보상 ×1.6, 악명 +2, 수배 중이면 체포 판정)
+			if (job.job === 'pirate') {
+				const day = prm.day || Math.floor(t / 480) + 1;
+				if (day > a.notorietyDay) {
+					a.notoriety = Math.max(0, a.notoriety - OUTLAW.decay_per_day * (day - a.notorietyDay));
+					a.notorietyDay = day;
+				}
+				if (a.banDay < day) {
+					bonus *= OUTLAW.reward_mult;
+					a.notoriety = Math.min(100, a.notoriety + OUTLAW.notoriety_per);
+					// 수배 중이면 하루에 한 번 형사가 추적한다
+					if (a.notoriety >= OUTLAW.wanted_at && a.checkedDay !== day && (a.checkedDay = day) && rng.next() < a.notoriety * OUTLAW.arrest_daily_per_point) {
+						const fine = Math.min(OUTLAW.fine_cap, Math.max(0, p.money) * OUTLAW.fine_rate);
+						p.money -= fine;
+						led.spend('벌금', fine);
+						a.notoriety = Math.max(0, a.notoriety + OUTLAW.after_arrest);
+						a.banDay = day + 1;
+						a.arrests++;
+					}
+				}
+			}
 			const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line) * outcome.mult) * rate;
 			p.money += pay;
 			led.earn('직업 급여', pay);
@@ -274,7 +304,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			a.days[r] = prm.day;
 		}
 		// 조건이 되면 급여가 더 높은 상위 직종으로 전직 (여윳돈이 있을 때)
-		for (const target of prm.transfers ? jobsOf(line).filter((j) => j.pay_mult > jobPayMult(job!.job)) : []) {
+		for (const target of prm.transfers ? upperTargets(p, line, a) : []) {
 			const fee = jobTransferFee(p, line, target.id);
 			if (transferMissing(p, line, target.id, fee).length === 0 && p.money >= fee + 2_000) {
 				transferJob(p, line, target.id);
@@ -309,15 +339,23 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	}
 }
 
+/** 옮겨 갈 상위 직종: 해양은 플레이어 성향대로 해적 또는 보물 사냥꾼, 나머지는 급여가 높은 쪽 */
+function upperTargets(p: Player, line: Line, a: Agent) {
+	const job = p.jobs[line]!;
+	const options = jobsOf(line).filter((j) => j.requires?.from === job.job);
+	if (line === 'SEA') return options.filter((j) => (j.id === 'pirate') === a.outlawPref);
+	return options.filter((j) => j.pay_mult > jobPayMult(job.job));
+}
+
 /** 다음 목표(직업 또는 상위 직종)에 모자란 행동 하나. 목표에 가까워졌을 때만 챙긴다 */
-function neededActions(p: Player, line: Line, prm: Params): string | null {
+function neededActions(p: Player, line: Line, prm: Params, a: Agent): string | null {
 	const job = p.jobs[line];
 	if (!job) {
 		if (p.skills[line].level < 3) return null;
 		return missingActionIds(p, entryJob(line)?.actions)[0] ?? null;
 	}
 	if (!prm.transfers) return null;
-	for (const target of jobsOf(line).filter((j) => j.pay_mult > jobPayMult(job.job) && j.requires?.from === job.job)) {
+	for (const target of upperTargets(p, line, a)) {
 		if (rankIndex(job.rank) < rankIndex(target.requires!.rank)) continue;
 		const id = missingActionIds(p, target.actions)[0];
 		if (id) return id;
@@ -357,8 +395,15 @@ export function run(over: Partial<Params> = {}): Result {
 		income: { HOBBY: { sum: 0, n: 0 }, JOB: { sum: 0, n: 0 }, BUSINESS: { sum: 0, n: 0 } },
 		bizDue: 0,
 		jobIncome: {},
-		actionsDone: 0
+		actionsDone: 0,
+		outlawPref: false,
+		notoriety: 0,
+		notorietyDay: 0,
+		banDay: -1,
+		checkedDay: -1,
+		arrests: 0
 	}));
+	for (const a of agents) a.outlawPref = rng.next() < 0.5;
 	const board = prm.events ? new Board(newTown(prm.seed + 1, prm.players)) : null;
 	const daily = prm.daily;
 	// 하루 단위 모드: 작업대 상시 임무 limit건 + 직접 수락한 의뢰 requestsPerDay건 (의뢰는 한도에 들지 않음)

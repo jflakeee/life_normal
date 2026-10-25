@@ -523,3 +523,36 @@ describe('daily actions on the workbench', () => {
 		expect(st.actions.care.level).toBe(1);
 	});
 });
+
+describe('pirate on the workbench', () => {
+	const pirate = (be: ReturnType<typeof setup>['be']) =>
+		be.game.query((s) => {
+			s.p.jobs.SEA = { job: 'pirate', rank: 'REGULAR', jobMissions: 0, requestsDone: 0, processDone: 0 };
+		});
+
+	it('raids pay ×1.6 and raise notoriety; no fame', async () => {
+		const { be, advance } = setup();
+		pirate(be);
+		await be.command('POST', '/workbench/1', { template_id: 'merchant_raid' });
+		advance(5 * TICK_SECONDS);
+		const c = await be.command<{ claimed: { reward: number; notoriety: number }[] }>('POST', '/claims');
+		expect(c.claimed.at(-1)!.notoriety).toBe(10);
+		expect(be.game.data.player.fame.SEA).toBe(0);
+		expect(audit(be.game.data)).toBe(0);
+	});
+
+	it('while banned, raids cannot be set and finished ones are confiscated', async () => {
+		const { be, advance, clock } = setup();
+		pirate(be);
+		await be.command('POST', '/workbench/1', { template_id: 'merchant_raid' });
+		advance(3 * TICK_SECONDS);
+		be.game.query((s) => {
+			s.p.notoriety = { value: 40, at: clock.t, banUntil: clock.t + 3600 };
+		});
+		advance(2 * TICK_SECONDS);
+		const c = await be.command<{ claimed: { confiscated?: boolean }[] }>('POST', '/claims');
+		expect(c.claimed.some((x) => x.confiscated)).toBe(true); // 금지 중에 끝난 습격
+		await expect(be.command('POST', '/workbench/1', { template_id: 'merchant_raid' })).rejects.toMatchObject({ status: 409 });
+		expect(audit(be.game.data)).toBe(0);
+	});
+});

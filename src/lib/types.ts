@@ -8,6 +8,7 @@ export interface Template {
 	gear: number;
 	process: { input: string; output: string } | null;
 	jobs: string[] | null;
+	outlaw?: boolean;
 }
 
 export interface Catalog {
@@ -38,6 +39,7 @@ export interface PlayerState {
 	now: number;
 	money: number;
 	fame: Record<string, number>;
+	notoriety: { value: number; wanted: boolean; ban_until: number | null };
 	actions: Record<string, { name: string; level: number; xp: number; next: number; streak: number; today: number; bonus: number }>;
 	job_entry: Record<string, { job: string | null; missing: string[] }>;
 	skills: Record<string, { level: number; xp: number }>;

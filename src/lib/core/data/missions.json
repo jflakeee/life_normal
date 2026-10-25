@@ -668,6 +668,48 @@
    "line": "SEA",
    "tier": "BUSINESS",
    "type": "REQUEST"
+  },
+  {
+   "id": "wreck_dive",
+   "name": "난파선 탐사",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "jobs": [
+    "treasure_hunter"
+   ]
+  },
+  {
+   "id": "treasure_map",
+   "name": "보물 지도 추적",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "jobs": [
+    "treasure_hunter"
+   ]
+  },
+  {
+   "id": "merchant_raid",
+   "name": "상선 습격",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "jobs": [
+    "pirate"
+   ],
+   "outlaw": true
+  },
+  {
+   "id": "smuggling",
+   "name": "밀수",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "jobs": [
+    "pirate"
+   ],
+   "outlaw": true
   }
  ],
  "chain": [

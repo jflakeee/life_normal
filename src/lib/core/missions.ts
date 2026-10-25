@@ -32,6 +32,7 @@ export interface MissionTemplate {
 	eventOnly: boolean; // 연계 이벤트에서만 등장
 	process: Process | null; // 가공: 원자재를 사서 가공품으로 판다
 	jobs: string[] | null; // 이 직종만 할 수 있음 (예: 철괴 제련은 대장장이)
+	outlaw: boolean; // 무법 임무 (해적): 보상 ×1.6, 악명, 명성 없음
 }
 
 /** 가공: 원자재(input)를 사서 가공품(output)으로 판다. fuel이 있으면 연료값도 든다 */
@@ -48,6 +49,7 @@ type RawTemplate = { id: string; name: string; line: string; tier: string; type:
 	event_only: boolean;
 	process: Process;
 	jobs: string[];
+	outlaw: boolean;
 }>;
 
 export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
@@ -64,7 +66,8 @@ export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
 			yieldItem: t.yield_item ?? null,
 			eventOnly: t.event_only ?? false,
 			process: t.process ?? null,
-			jobs: t.jobs ?? null
+			jobs: t.jobs ?? null,
+			outlaw: t.outlaw ?? false
 		}
 	])
 );
@@ -254,7 +257,7 @@ export class Board {
 		const t = TEMPLATES[templateId];
 		if (t.type === 'EMERGENCY' && t.tier === 'JOB') return MB.emergency_job_reward;
 		if (t.process) return processReward(this.world, t.process);
-		let r = MB.tier_base_reward[t.tier] * MB.type_mult[t.type] * performanceBase(t.line);
+		let r = MB.tier_base_reward[t.tier] * MB.type_mult[t.type] * performanceBase(t.line) * (t.outlaw ? B.outlaw.reward_mult : 1);
 		if (t.yieldItem) r *= priceRatio(this.world, t.yieldItem);
 		return Math.round(r);
 	}
@@ -333,7 +336,7 @@ export class Board {
 		if (t.process && p.jobs[t.line]) p.jobs[t.line]!.processDone++;
 		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		// 명성: 의뢰 완료 +1, 기한 절반 안이면 +1, 연계 이벤트 단계 +3
-		if (t.type === 'REQUEST') addFame(p, t.line, FAME_RULES.request + (fast ? FAME_RULES.fast_bonus : 0));
+		if (t.type === 'REQUEST' && !t.outlaw) addFame(p, t.line, FAME_RULES.request + (fast ? FAME_RULES.fast_bonus : 0)); // 무법 의뢰는 명성 대신 악명
 		if (x.chain) addFame(p, t.line, FAME_RULES.chain_step);
 		const drop = collectDrop(this.rng, p, t);
 		if (x.chain) {

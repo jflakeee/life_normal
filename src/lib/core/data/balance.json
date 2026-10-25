@@ -186,5 +186,26 @@
    "tournament_match",
    "pickup_soccer"
   ]
+ },
+ "treasure": {
+  "templates": [
+   "wreck_dive",
+   "treasure_map"
+  ],
+  "find_p": 0.1,
+  "find_mult": 3.0,
+  "miss_mult": 0.8,
+  "find_fame": 1
+ },
+ "outlaw": {
+  "reward_mult": 1.6,
+  "notoriety_per": 2,
+  "decay_per_day": 20,
+  "wanted_at": 30,
+  "fine_rate": 0.15,
+  "after_arrest": -50,
+  "ban_hours": 24,
+  "fine_cap": 1500,
+  "arrest_daily_per_point": 0.0025
  }
 }

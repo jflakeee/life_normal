@@ -57,7 +57,14 @@
 					<p class="quiet">{entry.job} 조건: {entry.missing.join(', ')}</p>
 				{/if}
 			{/if}
-			{#if job && job.transfers.length}
+			{#if line === 'SEA' && p.notoriety.value > 0}
+				<p class="outlaw">
+					악명 {p.notoriety.value}{p.notoriety.wanted ? ' · 현상수배 중' : ''}{p.notoriety.ban_until && p.notoriety.ban_until > game.now
+						? ` · 체포되어 ${Math.ceil((p.notoriety.ban_until - game.now) / 3600)}시간 동안 해적 일 금지`
+						: ''}
+				</p>
+			{/if}
+						{#if job && job.transfers.length}
 				<details class="transfers">
 					<summary>전직 ({job.transfers.map((t) => t.name).join(', ')})</summary>
 					<p class="quiet">같은 계열 안에서 바꿔요. 숙련도·명성은 그대로, 직급은 한 단계 내려가요. 7일에 한 번</p>
@@ -80,7 +87,7 @@
 	<section class="panel">
 		<h2>수집 Lv {p.skills.COLLECTING.level}</h2>
 		<p class="quiet">표본 수집으로 도감을 채우면 그 계열 경험치가 늘어나요. 계열을 모두 모으면 +10%를 더 받습니다</p>
-		<p class="quiet">명성은 의뢰를 끝내면 +1, 기한 절반 안이면 +1 더, 연계 이벤트 단계는 +3이에요. 책임 승급에는 그 계열 명성 80이 필요해요. 예술·음악·운동은 명성이 높을수록 보상이 커져요 (명성 100이면 1.5배). 예술은 레벨이 오를수록 걸작이 잘 나오고, 운동 경기는 레벨이 높을수록 잘 이겨요. 수락한 의뢰를 포기하면 명성이 3 줄어요. 정규가 되면 같은 계열의 다른 직종(예: 간호사 → 약사, 의사)으로 전직할 수 있고, 상위 직종은 급여가 높고 잘하는 임무의 보상이 더 커요</p>
+		<p class="quiet">명성은 의뢰를 끝내면 +1, 기한 절반 안이면 +1 더, 연계 이벤트 단계는 +3이에요. 책임 승급에는 그 계열 명성 80이 필요해요. 예술·음악·운동은 명성이 높을수록 보상이 커져요 (명성 100이면 1.5배). 예술은 레벨이 오를수록 걸작이 잘 나오고, 운동 경기는 레벨이 높을수록 잘 이겨요. 수락한 의뢰를 포기하면 명성이 3 줄어요. 정규가 되면 같은 계열의 다른 직종(예: 간호사 → 약사, 의사)으로 전직할 수 있고, 상위 직종은 급여가 높고 잘하는 임무의 보상이 더 커요. 어부는 정규가 되면 보물 사냥꾼이나 해적이 될 수 있어요. 해적은 벌이가 크지만 악명이 쌓이고, 악명 30부터 현상수배되어 하루 한 번 형사에게 잡힐 수 있어요</p>
 	</section>
 	{#if game.canTransfer}
 		<section class="panel stack">
@@ -112,6 +119,10 @@
 </div>
 
 <style>
+	.outlaw {
+		color: var(--seal);
+		font-weight: 600;
+	}
 	.actions summary {
 		cursor: pointer;
 		list-style: none;
