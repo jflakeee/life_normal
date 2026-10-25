@@ -203,6 +203,10 @@ export class Game {
 		return this.run(() => this.api.command('POST', `/jobs/${line}/transfer`, { job }), `${name}(으)로 전직했어요`);
 	}
 
+	choosePolicy(policy: string, name: string) {
+		return this.run(() => this.api.command('POST', '/policy', { policy }), `정책: ${name}`);
+	}
+
 	hire(index: number) {
 		return this.run(() => this.api.command('POST', `/businesses/${index}/hire`), '일꾼을 고용했어요');
 	}

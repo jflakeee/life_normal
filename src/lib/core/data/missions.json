@@ -791,6 +791,61 @@
    "line": "KNOWLEDGE",
    "tier": "BUSINESS",
    "type": "REQUEST"
+  },
+  {
+   "id": "volunteer",
+   "name": "봉사 활동",
+   "line": "CIVIC",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "town_meeting",
+   "name": "주민 회의",
+   "line": "CIVIC",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "civil_complaints",
+   "name": "민원 처리",
+   "line": "CIVIC",
+   "tier": "JOB",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "permit_review",
+   "name": "인허가 검토",
+   "line": "CIVIC",
+   "tier": "JOB",
+   "type": "REQUEST"
+  },
+  {
+   "id": "pledge_work",
+   "name": "공약 이행",
+   "line": "CIVIC",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "jobs": [
+    "politician"
+   ]
+  },
+  {
+   "id": "town_hall",
+   "name": "주민 간담회",
+   "line": "CIVIC",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "jobs": [
+    "politician"
+   ]
+  },
+  {
+   "id": "public_foundation",
+   "name": "공익 재단 사업",
+   "line": "CIVIC",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
   }
  ],
  "chain": [

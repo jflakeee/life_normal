@@ -15,6 +15,13 @@
 	const bd = $derived(game.catalog!.buildings);
 	const lineNames = $derived(game.catalog!.lines);
 	const buildingLines = $derived(Object.keys(lineNames).filter((l) => l !== 'COLLECTING'));
+	const el = $derived(p.election);
+	const until = (t: number) => {
+		const s = Math.max(0, t - game.now);
+		const d = Math.floor(s / 86_400);
+		const h = Math.floor((s % 86_400) / 3600);
+		return d ? `${d}일 ${h}시간` : `${h}시간 ${Math.floor((s % 3600) / 60)}분`;
+	};
 </script>
 
 <div class="stack">
@@ -90,6 +97,40 @@
 		{/if}
 	</section>
 
+	<section class="panel stack" aria-label="마을 선거">
+		<h2>마을 선거</h2>
+		{#if el.term}
+			<p>
+				<strong>{el.term.winner === 'player' ? '내가 이장이에요' : `이장: ${el.term.name}`}</strong>
+				<span class="quiet num"> · 임기 {until(el.term.until)} 남음</span>
+			</p>
+			{#if el.term.policy_name}
+				<p>정책 <strong>{el.term.policy_name}</strong> <span class="quiet">· {el.term.policy_effect}</span></p>
+			{:else if el.term.winner === 'player'}
+				<p class="quiet">이번 임기에 걸 정책을 하나 고르세요</p>
+				<ul class="biz">
+					{#each el.policies as pol (pol.id)}
+						<li class="row">
+							<span><strong>{pol.name}</strong> <span class="quiet">{pol.effect} · 대가: {pol.cost}</span></span>
+							<button class="secondary" disabled={game.busy} onclick={() => game.choosePolicy(pol.id, pol.name)}>고르기</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{:else}
+			<p class="quiet">아직 첫 선거 전이에요</p>
+		{/if}
+		<p class="quiet num">
+			다음 선거까지 {until(el.next)} ·
+			{el.candidacy.length ? `출마 조건: ${el.candidacy.join(', ')}` : '다음 선거에 출마해요'}
+		</p>
+		{#if el.last}
+			<p class="quiet num">
+				지난 선거: {[...(el.last.player !== null ? [['나', el.last.player] as [string, number]] : []), ...el.last.npcs].map(([n, v]) => `${n} ${v}표`).join(', ')} → {el.last.winner} 당선
+			</p>
+		{/if}
+	</section>
+
 	<section class="panel stack">
 		<h2>건물 확장</h2>
 		<p class="quiet">확장할 때마다 그 계열 임무 보상이 +{Math.round(bd.reward_bonus * 100)}% 올라요 (최대 {bd.costs.length}단계)</p>
@@ -118,6 +159,13 @@
 		padding: 0;
 		display: grid;
 		gap: 6px;
+	}
+	.biz li > span {
+		min-width: 0;
+	}
+	.biz button {
+		flex: none;
+		white-space: nowrap;
 	}
 	h3 {
 		margin: 14px 0 0;

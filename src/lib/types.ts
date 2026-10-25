@@ -43,6 +43,13 @@ export interface PlayerState {
 	notoriety: { value: number; wanted: boolean; ban_until: number | null };
 	actions: Record<string, { name: string; level: number; xp: number; next: number; streak: number; today: number; bonus: number }>;
 	job_entry: Record<string, { job: string; name: string; missing: string[] }[]>;
+	election: {
+		next: number;
+		term: { until: number; winner: 'player' | 'npc'; name: string; policy: string | null; policy_name: string | null; policy_effect: string | null } | null;
+		last: { at: number; player: number | null; npcs: [string, number][]; winner: string } | null;
+		candidacy: string[];
+		policies: { id: string; name: string; effect: string; cost: string }[];
+	};
 	research: { points: number; techs: { id: string; name: string; points: number; cost: number; effect: string; unlocked: boolean; missing: string[] }[] };
 	skills: Record<string, { level: number; xp: number }>;
 	jobs: Record<

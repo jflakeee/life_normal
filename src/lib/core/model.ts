@@ -129,7 +129,12 @@ export function addFame(p: Player, line: Line, n: number): void {
 	p.fame[line] = Math.max(0, Math.min(FAME_RULES.max, (p.fame[line] ?? 0) + n));
 }
 
-export const hourlyPay = (job: JobState) => JOB_BASE_PAY * RANK_PAY_MULT[job.rank] * jobPayMult(job.job);
+/** 위험 수당: 부상 위험이 있는 계열의 직업 급여 배율 */
+export const RISK = { ...B.risk };
+export const isRiskyLine = (line: Line | undefined) => !!line && RISK.lines.includes(line);
+
+export const hourlyPay = (job: JobState) =>
+	JOB_BASE_PAY * RANK_PAY_MULT[job.rank] * jobPayMult(job.job) * (isRiskyLine(JOBS[job.job]?.line) ? RISK.pay_mult : 1);
 export const repairCost = (e: Equipment) => e.price * REPAIR_RATE;
 
 /** 경험치 추가 후 오른 레벨 수 */

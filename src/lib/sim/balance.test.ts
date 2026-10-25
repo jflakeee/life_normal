@@ -144,3 +144,26 @@ describe('knowledge (지식)', () => {
 		expect(r.ledger.sink['연구비']).toBeGreaterThan(0);
 	}, 120_000);
 });
+
+describe('risk pay (위험 수당)', () => {
+	it('risky lines net about the same as safe ones and reach a business within a few days of them', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const { RISK } = await import('$lib/core/model');
+		const I = B.idle;
+		const r = run({ seed: 1, daily: { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
+		const safe = r.lineIncome(['TRANSPORT', 'CONSTRUCTION', 'MEDICAL', 'ART', 'MUSIC', 'AGRICULTURE', 'KNOWLEDGE', 'CIVIC']);
+		const risky = r.lineIncome(RISK.lines as never);
+		expect(risky / safe).toBeGreaterThan(0.9);
+		expect(risky / safe).toBeLessThan(1.1);
+		const med = (xs: number[]) => xs.sort((a, b) => a - b)[xs.length >> 1];
+		const days = (isRisky: boolean) => med(r.agents.filter((a) => a.days['사업'] !== undefined && RISK.lines.includes(a.line) === isRisky).map((a) => a.days['사업']!));
+		expect(Math.abs(days(true) - days(false))).toBeLessThanOrEqual(4);
+	}, 120_000);
+
+	it('even with the commerce-boost policy all 120 days, recovery stays at 0.8 or above', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const I = B.idle;
+		const r = run({ seed: 1, bizTax: 0.27, daily: { days: 120, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
+		expect(r.recovery).toBeGreaterThanOrEqual(0.8);
+	}, 180_000);
+});

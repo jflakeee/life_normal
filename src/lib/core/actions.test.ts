@@ -10,11 +10,8 @@ describe('daily actions (일상 행동)', () => {
 			expect(s.length, id).toBeGreaterThan(0);
 			expect(s.reduce((t, [, w]) => t + w, 0), id).toBeCloseTo(1);
 		}
-		// 농업이 생기면서 채집 경험이 데이터 수정 없이 농업에도 간다 (40%)
-		expect(Object.fromEntries(activeSpread('gather'))).toEqual({ AGRICULTURE: 0.4, MEDICAL: 0.3, CONSTRUCTION: 0.3 });
-		// 지식이 생기면서 관찰 경험이 지식에도 간다 (공공은 아직 없어서 기록 경험은 지식·예술끼리)
-		expect(activeSpread('observe').map(([l]) => l)).toEqual(['KNOWLEDGE', 'HUNTING', 'SECURITY', 'ART']);
-		expect(activeSpread('record').map(([l]) => l)).toEqual(['KNOWLEDGE', 'ART']);
+		// 13개 계열이 모두 생겨서 이제 모든 행동이 설계 데이터 그대로 나뉜다 (비율 다시 맞추기 없음)
+		for (const [id, def] of Object.entries(ACTIONS)) expect(Object.fromEntries(activeSpread(id)), id).toEqual(def.spread);
 	});
 
 	it('levels up faster than hobbies and reports missing requirements', () => {

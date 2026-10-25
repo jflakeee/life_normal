@@ -359,6 +359,36 @@
    "name": "신문 창간호",
    "line": "KNOWLEDGE",
    "rarity": "LEGENDARY"
+  },
+  {
+   "id": "old_ballot",
+   "name": "옛 투표용지",
+   "line": "CIVIC",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "town_seal",
+   "name": "마을 도장",
+   "line": "CIVIC",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "ribbon",
+   "name": "개통식 리본",
+   "line": "CIVIC",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "founding_charter",
+   "name": "마을 헌장 사본",
+   "line": "CIVIC",
+   "rarity": "RARE"
+  },
+  {
+   "id": "golden_key",
+   "name": "마을 황금 열쇠",
+   "line": "CIVIC",
+   "rarity": "LEGENDARY"
   }
  ]
 }

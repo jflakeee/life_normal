@@ -14,8 +14,8 @@ import {
 import { availableTo, newPlayer } from './model';
 
 describe('missions', () => {
-	it('has 96 templates (가공 4개, 새 계열 26개, 생산 계열 20개, 보물·해적 4개, 지식 9개 포함)', () => {
-		expect(Object.keys(TEMPLATES)).toHaveLength(96);
+	it('has 103 templates (가공 4, 예술·음악·운동 26, 생산 20, 보물·해적 4, 지식 9, 공공 7 포함)', () => {
+		expect(Object.keys(TEMPLATES)).toHaveLength(103);
 	});
 
 	it('every job has an entry-level routine mission', () => {
@@ -188,9 +188,9 @@ describe('performance lines (art, music, sport)', () => {
 		expect(rewardMult(p, 'TRANSPORT')).toBe(1); // 기존 계열은 명성과 무관
 	});
 
-	it('has 12 lines with buildings and 60 collectibles', async () => {
+	it('has 13 lines with buildings and 65 collectibles', async () => {
 		const { CATALOG } = await import('./collection');
-		expect(Object.keys(CATALOG)).toHaveLength(60);
+		expect(Object.keys(CATALOG)).toHaveLength(65);
 		for (const l of ['ART', 'MUSIC', 'SPORT'] as const) expect(Object.values(CATALOG).filter((c) => c.line === l)).toHaveLength(5);
 	});
 });

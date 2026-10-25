@@ -184,8 +184,7 @@
 	.where {
 		position: absolute;
 		bottom: 6px;
-		left: 50%;
-		transform: translateX(-50%);
+		left: 8px; /* 가운데에 서는 마을 회관을 가리지 않게 */
 		display: flex;
 		align-items: center;
 		gap: 6px;

@@ -357,7 +357,7 @@ function entryOf(line: Line, a: Agent) {
 /** 옮겨 갈 상위 직종: 해양은 플레이어 성향대로 해적 또는 보물 사냥꾼, 나머지는 급여가 높은 쪽 */
 function upperTargets(p: Player, line: Line, a: Agent) {
 	const job = p.jobs[line]!;
-	const options = jobsOf(line).filter((j) => j.requires?.from === job.job);
+	const options = jobsOf(line).filter((j) => j.requires?.from === job.job && !j.elected); // 정치인은 선거로만
 	if (line === 'SEA') return options.filter((j) => (j.id === 'pirate') === a.outlawPref);
 	return options.filter((j) => j.pay_mult > jobPayMult(job.job));
 }

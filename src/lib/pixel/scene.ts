@@ -43,7 +43,7 @@ const ROAD_Y = 60;
 const HOUSE_W = 2 * TILE;
 const HOUSE_GAP = 4;
 
-/** 구역마다 위 줄에 서는 집 (최대 5채). 공공은 생기면 중심가 광장 자리에 선다 */
+/** 구역마다 위 줄에 서는 집 (최대 5채). 공공(마을 회관)은 중심가 광장 한가운데 */
 const TOP_ROW: Record<District, Line[]> = {
 	field: ['AGRICULTURE', 'MINING', 'HUNTING', 'CONSTRUCTION', 'SPORT'],
 	center: ['MEDICAL', 'SECURITY', 'ART', 'MUSIC', 'KNOWLEDGE'],
@@ -52,7 +52,8 @@ const TOP_ROW: Record<District, Line[]> = {
 
 export const DISTRICT_OF = Object.fromEntries([
 	...DISTRICTS.flatMap((d) => TOP_ROW[d].map((l) => [l, d])),
-	['COLLECTING', 'field']
+	['COLLECTING', 'field'],
+	['CIVIC', 'center']
 ]) as Record<Line, District>;
 
 /** 계열별 건물(또는 수집 숲) 위치. 탭 판정에도 쓴다 (좌표는 그 계열 구역 안 기준) */
@@ -60,7 +61,8 @@ export const AREAS: Record<Line, Rect> = {
 	...(Object.fromEntries(
 		DISTRICTS.flatMap((d) => TOP_ROW[d].map((line, i) => [line, { x: 2 + i * (HOUSE_W + HOUSE_GAP), y: 8, w: HOUSE_W, h: 3 * TILE }]))
 	) as Record<Line, Rect>),
-	COLLECTING: { x: 116, y: 92, w: 60, h: 40 }
+	COLLECTING: { x: 116, y: 92, w: 60, h: 40 },
+	CIVIC: { x: 74, y: 84, w: HOUSE_W, h: 3 * TILE } // 중심가 광장 한가운데 마을 회관
 };
 
 const linesIn = (d: District) => (Object.keys(DISTRICT_OF) as Line[]).filter((l) => DISTRICT_OF[l] === d);

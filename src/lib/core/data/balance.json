@@ -253,5 +253,57 @@
    50,
    90
   ]
+ },
+ "election": {
+  "term_days": 7,
+  "npc_names": [
+   "김이장",
+   "박반장",
+   "최통장",
+   "정회장"
+  ],
+  "npc_score": [
+   50,
+   90
+  ],
+  "luck": 20,
+  "contribution_per": 5,
+  "contribution_cap": 40,
+  "policies": [
+   {
+    "id": "festival_support",
+    "name": "축제 지원",
+    "effect": "마을 축제 발생률 ×2",
+    "cost": "정치인 급여 −20%"
+   },
+   {
+    "id": "public_safety",
+    "name": "치안 강화",
+    "effect": "강도 사건 발생 ×0.5",
+    "cost": "보안 의뢰 보상 −10%"
+   },
+   {
+    "id": "scholarship",
+    "name": "장학금",
+    "effect": "모든 계열 경험치 +5%",
+    "cost": "정치인 급여 없음"
+   },
+   {
+    "id": "commerce_boost",
+    "name": "상권 활성화",
+    "effect": "사업 매출세 30% → 27%",
+    "cost": "마을 재정 부담"
+   }
+  ]
+ },
+ "risk": {
+  "lines": [
+   "HUNTING",
+   "SECURITY",
+   "SPORT",
+   "MINING",
+   "SEA"
+  ],
+  "pay_mult": 1.4
  }
 }

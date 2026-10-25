@@ -146,6 +146,7 @@ export interface World {
 	tick: number;
 	active: { effect: Effect; until: number; source?: string }[]; // source: 그 효과를 건 연계 이벤트 (보도가 연장)
 	bizBonus: Partial<Record<Line, number>>;
+	policy?: string | null; // 지금 마을에 걸린 정책 (선거)
 }
 export interface Posting {
 	mission: Mission;
@@ -179,7 +180,9 @@ export function newTown(seed: string | number, players = PLAYERS_PER_EVENT_UNIT)
 export function chainChance(c: EventChain, w: World): number {
 	const scale = w.players / PLAYERS_PER_EVENT_UNIT;
 	const crime = c.crime ? Math.min(1 + B.events.crime_per_business * w.totalBusinesses, CRIME_MULT_CAP) : 1;
-	return Math.min(c.baseP * scale * crime, 1);
+	// 정책: 축제 지원은 마을 축제 ×2, 치안 강화는 강도 사건 ×0.5
+	const policy = c.id === 'festival' && w.policy === 'festival_support' ? 2 : c.crime && w.policy === 'public_safety' ? 0.5 : 1;
+	return Math.min(c.baseP * scale * crime * policy, 1);
 }
 
 export function priceRatio(w: World, itemId: string): number {
@@ -264,6 +267,7 @@ export class Board {
 		if (t.process) return processReward(this.world, t.process);
 		let r = MB.tier_base_reward[t.tier] * MB.type_mult[t.type] * performanceBase(t.line) * (t.outlaw ? B.outlaw.reward_mult : 1);
 		if (t.yieldItem) r *= priceRatio(this.world, t.yieldItem);
+		if (this.world.policy === 'public_safety' && t.line === 'SECURITY' && t.type === 'REQUEST') r *= 0.9; // 치안 강화의 대가
 		return Math.round(r);
 	}
 

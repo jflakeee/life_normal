@@ -51,6 +51,7 @@ import {
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
 import * as wb from './workbench';
+import { candidacyMissing, ELECTION, holdElection, newElection, policyBizTax, policyXpMult, politicianPayMult, POLICIES, POLICY_BY_ID, type ElectionState } from '$lib/core/civic';
 import { addNotoriety, arrest, arrestChance, decayNotoriety, isBanned, isWanted, markChecked, notoriety, OUTLAW } from '$lib/core/outlaw';
 import {
 	ACTION_PREFIX,
@@ -132,6 +133,7 @@ export interface SaveData {
 	idem: Record<string, { response: unknown; at: number }>;
 	workbench: wb.Workbench;
 	lastActive: number; // 마지막 접속 (오프라인 진행 상한 기준)
+	election?: ElectionState; // 마을 선거와 임기
 }
 
 export function newSave(now: number, seed: string): SaveData {
@@ -178,6 +180,14 @@ export class Session {
 		wb.advance(d.workbench, wb.unlockedSlots(d.player), now, d.lastActive, TICK_SECONDS, tz);
 		d.lastActive = now;
 		decayNotoriety(d.player, now);
+		// 선거 (지연 평가): 지난 선거일마다 차례로 치른다
+		d.election ??= newElection(now);
+		while (now >= d.election.next) {
+			const at = d.election.next;
+			holdElection(d.player, d.election, new Rng(`${d.player.id}:election:${at}`), at);
+			d.election.next = at + ELECTION.term_days * 86_400;
+		}
+		d.town.world.policy = d.election.term && d.election.term.until > now ? d.election.term.policy : null;
 	}
 
 	get p(): Player {
@@ -276,6 +286,17 @@ export function state(s: Session): Json {
 				entryJobs(l).map((j) => ({ job: j.id, name: j.name, missing: takeJobMissing(p, l, j.id) }))
 			])
 		),
+		election: (() => {
+			const e = s.d.election!;
+			const term = e.term && e.term.until > s.now ? e.term : null;
+			return {
+				next: e.next,
+				term: term && { ...term, policy_name: term.policy ? POLICY_BY_ID[term.policy].name : null, policy_effect: term.policy ? POLICY_BY_ID[term.policy].effect : null },
+				last: e.last,
+				candidacy: candidacyMissing(p),
+				policies: POLICIES
+			};
+		})(),
 		research: {
 			points: researchPoints(p),
 			techs: TECHS.map((t) => ({ ...t, unlocked: hasTech(p, t.id), missing: techMissing(p, t.id) }))
@@ -495,13 +516,15 @@ function settle(
 	let outcome;
 	if ('postingId' in how) {
 		({ drop, outcome } = s.board.complete(how.postingId, p));
+		const extraXp = Math.round(MISSION_XP[t.type] * (policyXpMult(s.board.world.policy) - 1));
+		if (extraXp) gainXp(p, t.line, extraXp); // 장학금 정책
 	} else {
 		rate = how.rate;
 		outcome = performanceOutcome(() => rng.next(), p, t.line, t.id); // 작품 품질 (작업대의 예술 임무)
 		p.money += Math.round(how.reward * outcome.mult * jobRewardMult(p, t.line, t.id) * techRewardMult(p, t));
 		if (t.research) addResearch(p, t.research * rate);
 		if (outcome.fame) addFame(p, t.line, outcome.fame);
-		gainXp(p, t.line, Math.round(MISSION_XP[t.type] * rate));
+		gainXp(p, t.line, Math.round(MISSION_XP[t.type] * rate * policyXpMult(s.board.world.policy)));
 		if (t.tier === 'JOB') {
 			const job = p.jobs[t.line]!;
 			job.jobMissions++;
@@ -522,7 +545,8 @@ function settle(
 	const item: Json = { name: t.name, reward: gained, rate, outcome: outcome.label };
 	if (t.tier === 'HOBBY') s.pay('sales_tax', -gained * SALES_TAX, ref);
 	else if (t.tier === 'JOB' && p.jobs[t.line]) {
-		const pay = hourlyPay(p.jobs[t.line]!) * MISSION_HOURS * rate;
+		const politician = p.jobs[t.line]!.job === 'politician' ? politicianPayMult(s.board.world.policy) : 1;
+		const pay = hourlyPay(p.jobs[t.line]!) * MISSION_HOURS * rate * politician;
 		s.pay('job_pay', pay, ref);
 		item.pay = Math.round(pay * 100) / 100;
 	}
@@ -663,15 +687,16 @@ export function collect(s: Session): Json {
 	if (!pending || s.d.bizLast === null) return { settled: 0 };
 	const p = s.p;
 	const rng = new Rng(`${p.id}:biz:${s.d.bizLast}`);
+	const tax = policyBizTax(s.board.world.policy, BUSINESS_TAX); // 상권 활성화 정책이면 27%
 	let total = 0;
 	for (let i = 0; i < pending; i++) {
 		const rev = settlementRevenue(p, rng.uniform(0.7, 1.3));
 		const wage = workerWages(p);
 		s.pay('business_revenue', rev);
-		s.pay('business_tax', -rev * BUSINESS_TAX);
+		s.pay('business_tax', -rev * tax);
 		s.pay('business_upkeep', -upkeep(p));
 		s.pay('worker_wage', -wage);
-		total += rev * (1 - BUSINESS_TAX) - upkeep(p) - wage;
+		total += rev * (1 - tax) - upkeep(p) - wage;
 	}
 	for (const l of new Set(p.businesses)) {
 		const bonus = s.board.world.bizBonus[l] ?? 0;
@@ -723,6 +748,17 @@ export function transfer(s: Session, lineName: string, jobId: string): Json {
 	const rank = rule(() => s.track('job_transfer', jobId, () => transferJob(s.p, l, jobId)));
 	s.p.jobs[l]!.changedAt = s.now;
 	return { line: l, job: jobId, name: JOBS[jobId].name, rank };
+}
+
+/** 당선된 플레이어가 임기 정책을 고른다 (임기마다 한 번) */
+export function choosePolicy(s: Session, policyId: string): Json {
+	const term = s.d.election?.term;
+	if (!term || term.winner !== 'player' || term.until <= s.now) throw new GameError('당선된 임기 중에만 정책을 고를 수 있어요');
+	if (term.policy) throw new GameError('이번 임기의 정책은 이미 정했어요');
+	if (!POLICY_BY_ID[policyId]) throw new GameError('없는 정책입니다');
+	term.policy = policyId;
+	s.board.world.policy = policyId;
+	return { policy: policyId, name: POLICY_BY_ID[policyId].name };
 }
 
 export function hire(s: Session, index: number): Json {

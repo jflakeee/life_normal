@@ -24,6 +24,7 @@ export interface JobDef {
 	bonus?: { templates: string[]; mult: number };
 	actions?: Record<string, number>; // 행동 조건 (행동 id → 숙련 Lv)
 	outlaw?: boolean; // 무법 직종 (해적)
+	elected?: boolean; // 선거로만 되는 직종 (정치인)
 }
 
 export const JOBS: Record<string, JobDef> = Object.fromEntries((J.job as unknown as JobDef[]).map((j) => [j.id, j]));
@@ -63,6 +64,7 @@ export function transferMissing(p: Player, line: Line, jobId: string, fee: numbe
 	if (!job) return ['직업 없음'];
 	if (!target || target.line !== line) return ['이 계열의 직종이 아님'];
 	if (job.job === jobId) return ['지금 직종'];
+	if (target.elected) return ['선거에서 당선되어야 함'];
 	if (JOBS[job.job]?.outlaw && isWanted(p)) return [`수배 중에는 손을 씻을 수 없음 (악명 ${notoriety(p)})`];
 	const r = target.requires;
 	if (!r) return []; // 같은 계열의 진입 직종으로 돌아가는 것은 조건 없음 (이미 그 계열에서 일해 온 사람)

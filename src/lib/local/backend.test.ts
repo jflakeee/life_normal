@@ -594,3 +594,54 @@ describe('knowledge (과학자·기자)', () => {
 		expect(audit(be.game.data)).toBe(0);
 	});
 });
+
+describe('civic: elections and policies (공공)', () => {
+	type E = {
+		election: { next: number; term: { winner: string; name: string; policy: string | null } | null; last: { player: number | null; winner: string } | null; candidacy: string[] };
+		jobs: Record<string, { job: string }>;
+	};
+	const candidate = (be: ReturnType<typeof setup>['be'], fame: number) =>
+		be.game.query((s) => {
+			s.p.jobs.CIVIC = { job: 'civil_servant', rank: 'EXPERT', jobMissions: 0, requestsDone: 200, processDone: 0 };
+			s.p.actions = { talk: { level: 6, xp: 0 }, calculate: { level: 3, xp: 0 }, organize: { level: 4, xp: 0 } };
+			s.p.fame.CIVIC = fame;
+		});
+
+	it('an election is held every 7 days, lazily; without candidacy an NPC wins and picks a policy', async () => {
+		const { be, advance } = setup();
+		expect((await be.get<E>('/state')).election.candidacy).toContain('공무원이어야 함');
+		advance(7 * 86_400 + 10);
+		const st = await be.get<E>('/state');
+		expect(st.election.last!.player).toBeNull();
+		expect(st.election.term!.winner).toBe('npc');
+		expect(st.election.term!.policy).not.toBeNull();
+	});
+
+	it('a strong candidate wins, becomes a politician and chooses one policy for the term', async () => {
+		const { be, advance } = setup();
+		candidate(be, 100);
+		await expect(be.command('POST', '/jobs/CIVIC/transfer', { job: 'politician' })).rejects.toMatchObject({ status: 409 }); // 선거로만
+		advance(7 * 86_400 + 10);
+		const st = await be.get<E>('/state');
+		expect(st.election.term).toMatchObject({ winner: 'player', policy: null });
+		expect(st.jobs.CIVIC.job).toBe('politician');
+		await be.command('POST', '/policy', { policy: 'commerce_boost' });
+		await expect(be.command('POST', '/policy', { policy: 'scholarship' })).rejects.toMatchObject({ status: 409 }); // 임기마다 한 번
+		expect(be.game.data.town.world.policy).toBe('commerce_boost');
+	});
+
+	it('commerce boost lowers the business sales tax to 27%', async () => {
+		const { be, advance } = setup();
+		be.game.query((s) => {
+			s.p.jobs.HUNTING = { job: 'hunter', rank: 'CHIEF', jobMissions: 0, requestsDone: 0, processDone: 0 };
+			s.pay('grant', 50_000, 'test');
+			s.d.election = { next: s.now + 7 * 86_400, term: { until: s.now + 7 * 86_400, winner: 'npc', name: '김이장', policy: 'commerce_boost' }, last: null };
+		});
+		await be.command('POST', '/businesses', { line: 'HUNTING' });
+		advance(86_400);
+		await be.command('POST', '/businesses/collect');
+		const t = be.game.data.ledger.totals;
+		expect(-t.business_tax / t.business_revenue).toBeCloseTo(0.27);
+		expect(audit(be.game.data)).toBe(0);
+	});
+});

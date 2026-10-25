@@ -295,6 +295,34 @@
     "talk": 3,
     "record": 2
    }
+  },
+  {
+   "id": "civil_servant",
+   "name": "공무원",
+   "line": "CIVIC",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "organize": 3,
+    "talk": 2
+   }
+  },
+  {
+   "id": "politician",
+   "name": "정치인",
+   "line": "CIVIC",
+   "entry": false,
+   "pay_mult": 1.2,
+   "elected": true,
+   "requires": {
+    "from": "civil_servant",
+    "rank": "EXPERT"
+   },
+   "actions": {
+    "talk": 6,
+    "calculate": 3,
+    "organize": 4
+   }
   }
  ],
  "transfer": {

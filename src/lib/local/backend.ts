@@ -20,6 +20,7 @@ const ROUTES: [method: string, pattern: RegExp, command: boolean, handler: Handl
 	['DELETE', /^\/runs\/(\d+)$/, true, (m) => (s) => svc.abandon(s, Number(m[1]))],
 	['POST', /^\/jobs\/(\w+)$/, true, (m, b) => (s) => svc.takeJob(s, m[1], b.job ? String(b.job) : undefined)],
 	['POST', /^\/research\/(\w+)$/, true, (m) => (s) => svc.research(s, m[1])],
+	['POST', /^\/policy$/, true, (_, b) => (s) => svc.choosePolicy(s, String(b.policy))],
 	['POST', /^\/jobs\/(\w+)\/promote$/, true, (m) => (s) => svc.promote(s, m[1])],
 	['POST', /^\/jobs\/(\w+)\/transfer$/, true, (m, b) => (s) => svc.transfer(s, m[1], String(b.job))],
 	['POST', /^\/businesses$/, true, (_, b) => (s) => svc.openBusiness(s, String(b.line))],
