@@ -37,7 +37,18 @@ export interface PlayerState {
 	money: number;
 	fame: Record<string, number>;
 	skills: Record<string, { level: number; xp: number }>;
-	jobs: Record<string, { rank: string; job_missions: number; requests_done: number; missing: string[] }>;
+	jobs: Record<
+		string,
+		{
+			rank: string;
+			job: string;
+			job_name: string | null;
+			job_missions: number;
+			requests_done: number;
+			missing: string[];
+			transfers: { job: string; name: string; fee: number; pay_mult: number; missing: string[] }[];
+		}
+	>;
 	equipment: string[];
 	businesses: string[];
 	workers: number[];

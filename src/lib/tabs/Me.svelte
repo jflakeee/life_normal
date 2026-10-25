@@ -16,7 +16,7 @@
 		{@const dex = game.collection[line]}
 		<section class="panel stack line">
 			<div class="row">
-				<h2>{lines[line]}{job ? ` · ${RANK_NAME[job.rank]}` : ''}</h2>
+				<h2>{lines[line]}{job ? ` · ${job.job_name ?? ''} ${RANK_NAME[job.rank]}` : ''}</h2>
 				<span class="num quiet">Lv {sk.level}</span>
 			</div>
 			<div class="bar" aria-label="경험치 {sk.xp}/{xpToNext(sk.level)}">
@@ -40,6 +40,21 @@
 			{:else}
 				<p class="quiet">Lv 5가 되면 직업을 가질 수 있어요</p>
 			{/if}
+			{#if job && job.transfers.length}
+				<details class="transfers">
+					<summary>전직 ({job.transfers.map((t) => t.name).join(', ')})</summary>
+					<p class="quiet">같은 계열 안에서 바꿔요. 숙련도·명성은 그대로, 직급은 한 단계 내려가요. 7일에 한 번</p>
+					{#each job.transfers as t (t.job)}
+						<div class="row">
+							<div>
+								<p><strong>{t.name}</strong> <span class="quiet num">급여 ×{t.pay_mult} · 전직비 {t.fee.toLocaleString('ko-KR')} G</span></p>
+								{#if t.missing.length}<p class="quiet">{t.missing.join(', ')}</p>{/if}
+							</div>
+							<button class="secondary" disabled={t.missing.length > 0 || game.busy} onclick={() => game.transfer(line, t.job, t.name)}>전직</button>
+						</div>
+					{/each}
+				</details>
+			{/if}
 			{#if dex}
 				<p class="quiet num">도감 {dex.owned}/{dex.total} · 경험치 ×{dex.xp_mult.toFixed(2)}</p>
 			{/if}
@@ -48,7 +63,7 @@
 	<section class="panel">
 		<h2>수집 Lv {p.skills.COLLECTING.level}</h2>
 		<p class="quiet">표본 수집으로 도감을 채우면 그 계열 경험치가 늘어나요. 계열을 모두 모으면 +10%를 더 받습니다</p>
-		<p class="quiet">명성은 의뢰를 끝내면 +1, 기한 절반 안이면 +1 더, 연계 이벤트 단계는 +3이에요. 책임 승급에는 그 계열 명성 80이 필요해요. 예술·음악·운동은 명성이 높을수록 보상이 커져요 (명성 100이면 1.5배). 예술은 레벨이 오를수록 걸작이 잘 나오고, 운동 경기는 레벨이 높을수록 잘 이겨요. 수락한 의뢰를 포기하면 명성이 3 줄어요</p>
+		<p class="quiet">명성은 의뢰를 끝내면 +1, 기한 절반 안이면 +1 더, 연계 이벤트 단계는 +3이에요. 책임 승급에는 그 계열 명성 80이 필요해요. 예술·음악·운동은 명성이 높을수록 보상이 커져요 (명성 100이면 1.5배). 예술은 레벨이 오를수록 걸작이 잘 나오고, 운동 경기는 레벨이 높을수록 잘 이겨요. 수락한 의뢰를 포기하면 명성이 3 줄어요. 정규가 되면 같은 계열의 다른 직종(예: 간호사 → 약사, 의사)으로 전직할 수 있고, 상위 직종은 급여가 높고 잘하는 임무의 보상이 더 커요</p>
 	</section>
 	{#if game.canTransfer}
 		<section class="panel stack">
@@ -80,6 +95,25 @@
 </div>
 
 <style>
+	.transfers summary {
+		cursor: pointer;
+		color: var(--action);
+		font-weight: 600;
+		min-height: 44px;
+		display: flex;
+		align-items: center;
+	}
+	.transfers {
+		display: grid;
+		gap: 8px;
+	}
+	.transfers .row > div {
+		min-width: 0;
+	}
+	.transfers button {
+		flex: none;
+		white-space: nowrap;
+	}
 	.fame .bar {
 		flex: 1;
 	}

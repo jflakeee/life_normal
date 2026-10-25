@@ -74,3 +74,19 @@ describe('new lines earn like the old ones', () => {
 		expect(r.lineIncome(['SPORT']) / risky).toBeLessThan(1.15);
 	}, 60_000);
 });
+
+describe('upper jobs (직종)', () => {
+	it('being able to transfer raises a line’s income by about 10~20%, economy unchanged', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const I = B.idle;
+		const daily = { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 };
+		const off = run({ seed: 1, daily, transfers: false });
+		const on = run({ seed: 1, daily, transfers: true });
+		for (const l of ['TRANSPORT', 'CONSTRUCTION', 'MEDICAL'] as const) {
+			const gain = on.lineIncome([l]) / off.lineIncome([l]) - 1;
+			expect(gain, l).toBeGreaterThan(0.08);
+			expect(gain, l).toBeLessThan(0.25);
+		}
+		expect(on.recovery).toBeGreaterThanOrEqual(0.8);
+	}, 120_000);
+});

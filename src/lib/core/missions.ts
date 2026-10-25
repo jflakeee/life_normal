@@ -4,6 +4,7 @@
  *  - 돌발: 연계 이벤트가 발생시키고, 단계 완료 시 다음 계열 임무로 이어짐
  *  - 수집 임무 완료 시 도감 드롭 */
 import { DROP_P, obtain, roll, type Drop } from './collection';
+import { jobRewardMult } from './jobs';
 import B from './data/balance.json';
 import M from './data/missions.json';
 import { LINES, type Line, type MissionType, type Rank, type Tier } from './enums';
@@ -317,8 +318,9 @@ export class Board {
 		const fast = x.deadline !== null && this.world.tick - x.posted <= (x.deadline - x.posted) / 2;
 		if (t.type === 'REQUEST' && fast) x.mission.reward = Math.round(x.mission.reward * (1 + MB.fast_bonus));
 		const outcome = performanceOutcome(() => this.rng.next(), p, t.line, t.id); // 작품 품질, 경기 승패
-		x.mission.reward = Math.round(x.mission.reward * outcome.mult);
+		x.mission.reward = Math.round(x.mission.reward * outcome.mult * jobRewardMult(p, t.line, t.id));
 		completeMission(x.mission, p);
+		if (t.process && p.jobs[t.line]) p.jobs[t.line]!.processDone++;
 		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		// 명성: 의뢰 완료 +1, 기한 절반 안이면 +1, 연계 이벤트 단계 +3
 		if (t.type === 'REQUEST') addFame(p, t.line, FAME_RULES.request + (fast ? FAME_RULES.fast_bonus : 0));

@@ -1,5 +1,6 @@
 /** 데이터 모델과 규칙. 수치는 data/balance.json. 상태는 순수 데이터라 그대로 저장할 수 있다. */
 import { xpMult } from './collection';
+import { entryJob, jobPayMult, JOBS, rankAfterTransfer, transferFee, transferMissing } from './jobs';
 import B from './data/balance.json';
 import { LINES, PERFORMANCE_LINES, RANKS, rankIndex, type Line, type MissionType, type Rank, type Tier } from './enums';
 
@@ -74,9 +75,12 @@ export interface SkillState {
 	xp: number;
 }
 export interface JobState {
+	job: string; // 직종 id (data/jobs.json)
 	rank: Rank;
 	jobMissions: number;
 	requestsDone: number;
+	processDone: number; // 그 계열에서 끝낸 가공 임무 (약사 전직 조건)
+	changedAt?: number; // 마지막 전직 시각 (쿨다운)
 }
 export interface Equipment {
 	name: string;
@@ -118,7 +122,7 @@ export function addFame(p: Player, line: Line, n: number): void {
 	p.fame[line] = Math.max(0, Math.min(FAME_RULES.max, (p.fame[line] ?? 0) + n));
 }
 
-export const hourlyPay = (job: JobState) => JOB_BASE_PAY * RANK_PAY_MULT[job.rank];
+export const hourlyPay = (job: JobState) => JOB_BASE_PAY * RANK_PAY_MULT[job.rank] * jobPayMult(job.job);
 export const repairCost = (e: Equipment) => e.price * REPAIR_RATE;
 
 /** 경험치 추가 후 오른 레벨 수 */
@@ -142,7 +146,7 @@ export const canTakeJob = (p: Player, line: Line) =>
 
 export function takeJob(p: Player, line: Line): void {
 	if (!canTakeJob(p, line)) throw new RuleError(`취미 Lv ${JOB_UNLOCK_LEVEL} 필요`);
-	p.jobs[line] ??= { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
+	p.jobs[line] ??= { job: entryJob(line)?.id ?? line.toLowerCase(), rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0, processDone: 0 };
 }
 
 /** 승급에 부족한 조건 목록 (비어 있으면 승급 가능) */
@@ -197,6 +201,24 @@ export function hireWorker(p: Player, index: number): void {
 	p.money -= WORKERS.hire_cost;
 	p.workers[index] = (p.workers[index] ?? 0) + 1;
 }
+
+/** 전직: 같은 계열 다른 직종으로. 직급 한 단계 하락, 전직비. 반환: 새 직급 */
+export const jobTransferFee = (p: Player, line: Line, jobId: string) =>
+	transferFee(p, line, jobId, Object.fromEntries(Object.entries(RANK_REQ).map(([r, q]) => [r, q.fee])));
+
+export function transferJob(p: Player, line: Line, jobId: string): Rank {
+	const fee = jobTransferFee(p, line, jobId);
+	const missing = transferMissing(p, line, jobId, fee);
+	if (missing.length) throw new RuleError('전직 조건 부족: ' + missing.join(', '));
+	const job = p.jobs[line]!;
+	p.money -= fee;
+	job.job = jobId;
+	job.rank = rankAfterTransfer(job.rank);
+	job.jobMissions = 0; // 새 직종의 근무 실적은 처음부터 (의뢰 완료 수는 계열 실적이라 유지)
+	return job.rank;
+}
+
+export const jobName = (p: Player, line: Line) => JOBS[p.jobs[line]?.job ?? '']?.name ?? null;
 
 /** 다음 확장 비용 (최고 레벨이면 null) */
 export const upgradeCost = (p: Player, line: Line): number | null => BUILDINGS_RULES.costs[p.buildings[line] ?? 0] ?? null;

@@ -56,7 +56,7 @@ describe('missions', () => {
 		const board = new Board(newTown(0));
 		const hero = newPlayer('hero');
 		hero.equipment.push({ name: '중급', price: 1_500, durability: 1 });
-		for (const l of LINES.filter((x) => x !== 'COLLECTING')) hero.jobs[l] = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+		for (const l of LINES.filter((x) => x !== 'COLLECTING')) hero.jobs[l] = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
 		board.startChain(CHAINS[0].id);
 		for (let i = 0; i < CHAINS[0].steps.length; i++) {
 			const posting = Object.values(board.town.postings).find((p) => p.chain)!;
@@ -126,7 +126,7 @@ describe('fame', () => {
 	const hero = () => {
 		const p = newPlayer('hero');
 		p.equipment.push({ name: '중급', price: 1_500, durability: 1 });
-		for (const l of LINES.filter((x) => x !== 'COLLECTING')) p.jobs[l] = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+		for (const l of LINES.filter((x) => x !== 'COLLECTING')) p.jobs[l] = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
 		return p;
 	};
 
@@ -151,7 +151,7 @@ describe('fame', () => {
 		const { promoteMissing, RANK_REQ } = await import('./model');
 		const p = newPlayer('p', 1e9);
 		p.skills.SECURITY.level = 10;
-		p.jobs.SECURITY = { rank: 'EXPERT', jobMissions: 999, requestsDone: 999 };
+		p.jobs.SECURITY = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 999, requestsDone: 999 };
 		expect(promoteMissing(p, 'SECURITY').join()).toContain('명성 0/80');
 		p.fame.SECURITY = RANK_REQ.CHIEF.fame;
 		expect(promoteMissing(p, 'SECURITY')).toEqual([]);
@@ -164,7 +164,7 @@ describe('performance lines (art, music, sport)', () => {
 			const board = new Board(newTown(1));
 			const p = newPlayer('hero');
 			p.equipment.push({ name: '중급', price: 1_500, durability: 1 });
-			for (const l of LINES.filter((x) => x !== 'COLLECTING')) p.jobs[l] = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+			for (const l of LINES.filter((x) => x !== 'COLLECTING')) p.jobs[l] = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
 			board.startChain(chain.id);
 			for (let i = 0; i < chain.steps.length; i++) {
 				const step = Object.values(board.town.postings).find((x) => x.chain)!;

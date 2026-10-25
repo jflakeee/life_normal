@@ -191,6 +191,10 @@ export class Game {
 		return this.run(() => this.api.command('DELETE', `/runs/${runId}`), '의뢰를 포기했어요 (명성 −3)');
 	}
 
+	transfer(line: string, job: string, name: string) {
+		return this.run(() => this.api.command('POST', `/jobs/${line}/transfer`, { job }), `${name}(으)로 전직했어요`);
+	}
+
 	hire(index: number) {
 		return this.run(() => this.api.command('POST', `/businesses/${index}/hire`), '일꾼을 고용했어요');
 	}

@@ -52,7 +52,7 @@ describe('model', () => {
 			fc.property(fc.integer({ min: 0, max: 100_000 }), (extra) => {
 				const p = newPlayer('p', req.fee + extra);
 				p.skills.HUNTING.level = req.level;
-				p.jobs.HUNTING = { rank: 'APPRENTICE', jobMissions: req.job_missions, requestsDone: 0 };
+				p.jobs.HUNTING = { job: '', processDone: 0, rank: 'APPRENTICE', jobMissions: req.job_missions, requestsDone: 0 };
 				const before = p.money;
 				return promote(p, 'HUNTING') === 'REGULAR' && before - p.money === req.fee;
 			})
@@ -61,16 +61,16 @@ describe('model', () => {
 
 	it('promoteMissing lists every gap', () => {
 		const p = newPlayer('p');
-		p.jobs.HUNTING = { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
+		p.jobs.HUNTING = { job: '', processDone: 0, rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
 		const missing = promoteMissing(p, 'HUNTING').join(' ');
 		for (const w of ['Lv', '자격 취득비', '직업 임무']) expect(missing).toContain(w);
 	});
 
 	it('business needs chief rank and capital', () => {
 		const p = newPlayer('p', 1e9);
-		p.jobs.HUNTING = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+		p.jobs.HUNTING = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
 		expect(canOpenBusiness(p, 'HUNTING')).toBe(false);
-		p.jobs.HUNTING.rank = 'CHIEF';
+		p.jobs.HUNTING!.rank = 'CHIEF';
 		expect(canOpenBusiness(p, 'HUNTING')).toBe(true);
 	});
 });

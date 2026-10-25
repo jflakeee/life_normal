@@ -13,6 +13,8 @@ import {
 	BUSINESS_REVENUE,
 	addFame,
 	BUILDINGS_RULES,
+	jobTransferFee,
+	transferJob,
 	FAME_RULES,
 	performanceOutcome,
 	BUSINESS_TAX,
@@ -48,6 +50,7 @@ import {
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
 import * as wb from './workbench';
+import { entryJob, jobRewardMult, JOBS, jobsOf, TRANSFER, transferMissing } from '$lib/core/jobs';
 
 type Json = Record<string, unknown>;
 
@@ -63,7 +66,7 @@ const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
 const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT'];
-export const SAVE_VERSION = 6; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물
+export const SAVE_VERSION = 7; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물, v7: 직종
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */
 export class GameError extends Error {}
@@ -221,7 +224,15 @@ export function state(s: Session): Json {
 		jobs: Object.fromEntries(
 			Object.entries(p.jobs).map(([l, j]) => [
 				l,
-				{ rank: j!.rank, job_missions: j!.jobMissions, requests_done: j!.requestsDone, missing: promoteMissing(p, l as Line) }
+				{
+					rank: j!.rank,
+					job: j!.job,
+					job_name: JOBS[j!.job]?.name ?? null,
+					job_missions: j!.jobMissions,
+					requests_done: j!.requestsDone,
+					missing: promoteMissing(p, l as Line),
+					transfers: transferOptions(s, l as Line)
+				}
 			])
 		),
 		equipment: p.equipment.map((e) => e.name),
@@ -294,7 +305,8 @@ export function catalog(): Json {
 		mission_seconds: TICK_SECONDS,
 		business: { open_cost: BUSINESS_OPEN_COST, revenue: BUSINESS_REVENUE, tax: BUSINESS_TAX, settlements_per_day: SETTLE_CAP },
 		workers: WORKERS,
-		buildings: BUILDINGS_RULES
+		buildings: BUILDINGS_RULES,
+		jobs: Object.values(JOBS).map((j) => ({ id: j.id, name: j.name, line: j.line, entry: j.entry, pay_mult: j.pay_mult }))
 	};
 }
 
@@ -399,13 +411,14 @@ function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { re
 	} else {
 		rate = how.rate;
 		outcome = performanceOutcome(() => rng.next(), p, t.line, t.id); // 작품 품질 (작업대의 예술 임무)
-		p.money += Math.round(how.reward * outcome.mult);
+		p.money += Math.round(how.reward * outcome.mult * jobRewardMult(p, t.line, t.id));
 		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		gainXp(p, t.line, Math.round(MISSION_XP[t.type] * rate));
 		if (t.tier === 'JOB') {
 			const job = p.jobs[t.line]!;
 			job.jobMissions++;
 			if (t.type === 'REQUEST') job.requestsDone++;
+			if (t.process) job.processDone++;
 		}
 		drop = collectDrop(rng, p, t);
 	}
@@ -551,6 +564,34 @@ export function abandon(s: Session, runId: number): Json {
 	return { abandoned: runId, line: t.line, fame: s.p.fame[t.line] };
 }
 
+function cooldownLeft(s: Session, line: Line): number {
+	const at = s.p.jobs[line]?.changedAt;
+	return at === undefined ? 0 : Math.max(0, at + TRANSFER.cooldown_days * 86_400 - s.now);
+}
+
+/** 같은 계열에서 옮길 수 있는 직종과 부족한 조건 */
+function transferOptions(s: Session, line: Line): Json[] {
+	const cur = s.p.jobs[line]?.job;
+	const wait = cooldownLeft(s, line);
+	return jobsOf(line)
+		.filter((j) => j.id !== cur)
+		.map((j) => {
+			const fee = jobTransferFee(s.p, line, j.id);
+			const missing = transferMissing(s.p, line, j.id, fee);
+			if (wait > 0) missing.push(`전직 대기 ${Math.ceil(wait / 86_400)}일`);
+			return { job: j.id, name: j.name, fee, pay_mult: j.pay_mult, missing };
+		});
+}
+
+/** 전직: 같은 계열의 다른 직종으로 (직급 한 단계 하락, 전직비, 7일 대기) */
+export function transfer(s: Session, lineName: string, jobId: string): Json {
+	const l = line(lineName);
+	if (cooldownLeft(s, l) > 0) throw new GameError(`전직은 ${TRANSFER.cooldown_days}일에 한 번만 할 수 있어요`);
+	const rank = rule(() => s.track('job_transfer', jobId, () => transferJob(s.p, l, jobId)));
+	s.p.jobs[l]!.changedAt = s.now;
+	return { line: l, job: jobId, name: JOBS[jobId].name, rank };
+}
+
 export function hire(s: Session, index: number): Json {
 	if (s.p.businesses.length) collect(s); // 일꾼 수가 바뀌기 전에 밀린 정산부터
 	rule(() => s.track('worker_hire', String(index), () => hireWorker(s.p, index)));
@@ -613,6 +654,14 @@ export function migrateSave(d: SaveData): SaveData {
 		d.player.workers = d.player.businesses.map(() => 0);
 		d.player.buildings = Object.fromEntries(LINES.map((l) => [l, 0])) as Player['buildings'];
 		d.version = 6;
+	}
+	if (d.version === 6) {
+		// 계열 = 직업이던 시절의 직업은 그 계열의 진입 직종이 된다 (치료사 → 간호사 등)
+		for (const [l, j] of Object.entries(d.player.jobs)) {
+			j!.job = entryJob(l as Line)?.id ?? l.toLowerCase();
+			j!.processDone = 0;
+		}
+		d.version = 7;
 	}
 	return d;
 }

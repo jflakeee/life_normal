@@ -7,6 +7,8 @@ import {
 	addFame,
 	BUSINESS_OPEN_COST,
 	hireWorker,
+	jobTransferFee,
+	transferJob,
 	performanceBase,
 	performanceOutcome,
 	rewardMult,
@@ -45,6 +47,7 @@ import {
 	type Player
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
+import { jobPayMult, jobRewardMult, jobsOf, transferMissing } from '$lib/core/jobs';
 
 const REQUEST_PROB = 0.4; // 플레이어가 의뢰를 고르는 비율 (행동 가정)
 const GEAR_BY_RANK: Partial<Record<Rank, number>> = { APPRENTICE: 200, EXPERT: 1_500, CHIEF: 6_000 };
@@ -80,6 +83,7 @@ interface Agent {
 	days: Partial<Record<(typeof MILESTONES)[number], number>>;
 	income: Record<Tier, { sum: number; n: number }>;
 	bizDue: number;
+	jobIncome: Record<string, { sum: number; n: number }>;
 }
 
 export interface Params {
@@ -93,6 +97,8 @@ export interface Params {
 	bizTax: number;
 	/** 하루 단위 모드 (작업대): 날마다 limit건, full건 이후 보상률 overRate. hours 대신 days만큼 돈다 */
 	daily: { days: number; limit: number; full: number; overRate: number; settlementsPerDay: number; requestsPerDay?: number } | null;
+	/** 상위 직종으로 전직하는 행동 */
+	transfers: boolean;
 	/** 사업 뒤 지출 행동 (일꾼, 건물 확장) */
 	sinks: { workers: boolean; buildings: boolean };
 	/** 현재 날짜 (하루 단위 모드에서 내부용) */
@@ -110,6 +116,7 @@ export const DEFAULT_PARAMS: Params = {
 	bizTax: BUSINESS_TAX,
 	daily: null,
 	sinks: { workers: true, buildings: true },
+	transfers: true,
 	day: 0
 };
 
@@ -122,6 +129,8 @@ export interface Result {
 	medianHours(m: (typeof MILESTONES)[number]): number;
 	medianDays(m: (typeof MILESTONES)[number]): number;
 	tierIncome(t: Tier): number;
+	/** 직종별 직업 순수입 평균 (사업 전) */
+	jobIncome(jobId: string): number;
 	/** 계열 묶음별 취미·직업 순수입 평균 (사업 전) */
 	lineIncome(lines: readonly Line[]): number;
 }
@@ -158,11 +167,17 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 		// 성과급: 일반 직업 임무(평균 5 G) 또는, 더 낫다면 가공 이윤 (플레이어는 이득인 쪽을 고른다)
 		let bonus = JOB_BONUS_PER_H * rng.uniform(0.5, 1.5) * MISSION_HOURS;
 		const world = board?.world ?? REFERENCE_WORLD;
+		let processed = false;
 		for (const t of PROCESS_TEMPLATES[line] ?? []) {
 			const rankOk = !t.minRank || rankIndex(job.rank) >= rankIndex(t.minRank);
 			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
-			if (rankOk && gearOk) bonus = Math.max(bonus, processReward(world, t.process!));
+			const r = processReward(world, t.process!) * jobRewardMult(p, line, t.id);
+			if (rankOk && gearOk && r > bonus) {
+				bonus = r;
+				processed = true;
+			}
 		}
+		if (processed) job.processDone++;
 		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line) * outcome.mult) * rate;
 		p.money += pay;
 		led.earn('직업 급여', pay);
@@ -208,6 +223,11 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			if (wage) led.spend('일꾼 급여', wage);
 		}
 	}
+	if (job && !p.businesses.length) {
+		const jb = (a.jobIncome[job.job] ??= { sum: 0, n: 0 });
+		jb.sum += (p.money - before) / MISSION_HOURS;
+		jb.n++;
+	}
 	const bucket = a.income[p.businesses.length ? 'BUSINESS' : tier];
 	bucket.sum += (p.money - before) / MISSION_HOURS;
 	bucket.n++;
@@ -231,6 +251,15 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			led.spend('자격 취득비', RANK_REQ[r].fee);
 			a.milestones[r] = hours;
 			a.days[r] = prm.day;
+		}
+		// 조건이 되면 급여가 더 높은 상위 직종으로 전직 (여윳돈이 있을 때)
+		for (const target of prm.transfers ? jobsOf(line).filter((j) => j.pay_mult > jobPayMult(job!.job)) : []) {
+			const fee = jobTransferFee(p, line, target.id);
+			if (transferMissing(p, line, target.id, fee).length === 0 && p.money >= fee + 2_000) {
+				transferJob(p, line, target.id);
+				led.spend('전직', fee);
+				break;
+			}
 		}
 		const n = p.businesses.length;
 		const marginal = BUSINESS_REVENUE * (1 - prm.bizTax) - (businessUpkeep(n + 1) - businessUpkeep(n));
@@ -289,7 +318,8 @@ export function run(over: Partial<Params> = {}): Result {
 		milestones: {},
 		days: {},
 		income: { HOBBY: { sum: 0, n: 0 }, JOB: { sum: 0, n: 0 }, BUSINESS: { sum: 0, n: 0 } },
-		bizDue: 0
+		bizDue: 0,
+		jobIncome: {}
 	}));
 	const board = prm.events ? new Board(newTown(prm.seed + 1, prm.players)) : null;
 	const daily = prm.daily;
@@ -327,6 +357,10 @@ export function run(over: Partial<Params> = {}): Result {
 		reached: (m) => agents.filter((a) => a.milestones[m] !== undefined).length,
 		medianHours: (m) => median(agents.flatMap((a) => (a.milestones[m] !== undefined ? [a.milestones[m]!] : []))),
 		medianDays: (m) => median(agents.flatMap((a) => (a.days[m] !== undefined ? [a.days[m]!] : []))),
+		jobIncome: (id) => {
+			const b = agents.reduce((s, a) => ({ sum: s.sum + (a.jobIncome[id]?.sum ?? 0), n: s.n + (a.jobIncome[id]?.n ?? 0) }), { sum: 0, n: 0 });
+			return b.n ? b.sum / b.n : NaN;
+		},
 		lineIncome: (ls) => {
 			let sum = 0,
 				n = 0;

@@ -108,7 +108,7 @@ describe('local backend', () => {
 		const { be, advance } = setup();
 		be.game.query((s) => {
 			for (const l of ['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY'] as const)
-				s.p.jobs[l] = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+				s.p.jobs[l] = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
 			s.p.equipment.push({ name: '중급 장비', price: 1_500, durability: 1 });
 			s.board.startChain(CHAINS[0].id);
 		});
@@ -125,7 +125,7 @@ describe('local backend', () => {
 	it('caps business settlements at one day', async () => {
 		const { be, advance } = setup();
 		be.game.query((s) => {
-			s.p.jobs.HUNTING = { rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
+			s.p.jobs.HUNTING = { job: '', processDone: 0, rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
 			s.pay('grant', 50_000, 'test');
 		});
 		await be.command('POST', '/businesses', { line: 'HUNTING' });
@@ -241,7 +241,7 @@ describe('processing missions', () => {
 		const { be, advance } = setup();
 		await expect(be.command('POST', '/workbench/0', { template_id: 'process_lumber' })).rejects.toMatchObject({ status: 409 });
 		be.game.query((s) => {
-			s.p.jobs.CONSTRUCTION = { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
+			s.p.jobs.CONSTRUCTION = { job: '', processDone: 0, rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
 		});
 		await be.command('POST', '/workbench/0', { template_id: 'process_lumber' });
 		advance(2 * TICK_SECONDS);
@@ -304,7 +304,7 @@ describe('workbench (idle)', () => {
 		const open = async () => (await be.get<S>('/state')).workbench.slots.filter((x) => x.unlocked).length;
 		expect(await open()).toBe(1);
 		be.game.query((s) => {
-			s.p.jobs.HUNTING = { rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
+			s.p.jobs.HUNTING = { job: '', processDone: 0, rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
 		});
 		expect(await open()).toBe(2);
 		be.game.query((s) => s.pay('grant', 50_000, 'test'));
@@ -315,7 +315,7 @@ describe('workbench (idle)', () => {
 	it('slots share one daily limit', async () => {
 		const { be, advance } = setup();
 		be.game.query((s) => {
-			s.p.jobs.TRANSPORT = { rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
+			s.p.jobs.TRANSPORT = { job: '', processDone: 0, rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0 };
 		});
 		await be.command('POST', '/workbench/0', { template_id: 'parcel' });
 		await be.command('POST', '/workbench/1', { template_id: 'passenger' });
@@ -347,12 +347,12 @@ describe('fame migration', () => {
 		d.version = 4;
 		d.player.reputation = 42;
 		delete d.player.fame;
-		d.player.jobs.HUNTING = { rank: 'EXPERT', jobMissions: 100, requestsDone: 30 };
+		d.player.jobs.HUNTING = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 100, requestsDone: 30 };
 		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
 		const st = await old.get<{ fame: Record<string, number> }>('/state');
 		expect(st.fame.HUNTING).toBe(30);
 		expect(st.fame.TRANSPORT).toBe(0);
-		expect(old.game.data.version).toBe(6); // v4 → v5(명성) → v6(일꾼·건물)
+		expect(old.game.data.version).toBe(7); // v4 → v5(명성) → v6(일꾼·건물) → v7(직종)
 		expect('reputation' in old.game.data.player).toBe(false);
 	});
 });
@@ -360,7 +360,7 @@ describe('fame migration', () => {
 describe('workers and buildings (long-run sinks)', () => {
 	const rich = (be: ReturnType<typeof setup>['be']) =>
 		be.game.query((s) => {
-			s.p.jobs.HUNTING = { rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
+			s.p.jobs.HUNTING = { job: '', processDone: 0, rank: 'CHIEF', jobMissions: 0, requestsDone: 0 };
 			s.pay('grant', 200_000, 'test');
 		});
 
@@ -437,7 +437,7 @@ describe('abandoning a request', () => {
 	it('gives the posting back and costs 3 fame; finished ones cannot be abandoned', async () => {
 		const { be, advance } = setup();
 		be.game.query((s) => {
-			s.p.jobs.HUNTING = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+			s.p.jobs.HUNTING = { job: '', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
 			s.p.fame.HUNTING = 10;
 			s.board.startChain('beast');
 		});
@@ -451,5 +451,35 @@ describe('abandoning a request', () => {
 		const r2 = await be.command<{ run_id: number }>('POST', `/board/${posting.id}/accept`);
 		advance(TICK_SECONDS);
 		await expect(be.command('DELETE', `/runs/${r2.run_id}`)).rejects.toMatchObject({ status: 409 });
+	});
+});
+
+describe('job transfer (직종)', () => {
+	it('transfers inside a line once per 7 days and shows the options', async () => {
+		const { be, advance } = setup();
+		be.game.query((s) => {
+			s.p.jobs.SECURITY = { job: 'guard', rank: 'REGULAR', jobMissions: 0, requestsDone: 0, processDone: 0 };
+		});
+		type J = { jobs: Record<string, { job_name: string; transfers: { job: string; missing: string[]; fee: number }[] }> };
+		const opt = (await be.get<J>('/state')).jobs.SECURITY.transfers.find((t) => t.job === 'detective')!;
+		expect(opt.missing.some((m) => m.startsWith('전직비'))).toBe(true); // 시작 돈 100 G로는 부족
+		be.game.query((s) => s.pay('grant', 10_000, 'test'));
+		await be.command('POST', '/jobs/SECURITY/transfer', { job: 'detective' });
+		const st = await be.get<J>('/state');
+		expect(st.jobs.SECURITY.job_name).toBe('형사');
+		await expect(be.command('POST', '/jobs/SECURITY/transfer', { job: 'guard' })).rejects.toMatchObject({ status: 409 });
+		advance(7 * 86_400);
+		await be.command('POST', '/jobs/SECURITY/transfer', { job: 'guard' });
+		expect(audit(be.game.data)).toBe(0);
+	});
+
+	it('a v6 save turns old jobs into the entry job of each line', async () => {
+		const { store, clock } = setup();
+		const d = JSON.parse(store.raw!);
+		d.version = 6;
+		d.player.jobs = { MEDICAL: { rank: 'EXPERT', jobMissions: 50, requestsDone: 20 } };
+		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
+		const st = await old.get<{ jobs: Record<string, { job: string; rank: string }> }>('/state');
+		expect(st.jobs.MEDICAL).toMatchObject({ job: 'nurse', rank: 'EXPERT' });
 	});
 });
