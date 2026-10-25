@@ -82,7 +82,7 @@ const START_MONEY = 100;
 const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
-const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT'];
+const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT', 'MINING', 'SEA'];
 export const SAVE_VERSION = 8; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물, v7: 직종, v8: 일상 행동
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */
@@ -334,7 +334,8 @@ export function catalog(): Json {
 				type: t.type,
 				min_rank: t.minRank,
 				gear: t.gear,
-				process: t.process && { input: ITEM_NAMES[t.process.input], output: ITEM_NAMES[t.process.output] }
+				process: t.process && { input: ITEM_NAMES[t.process.input], output: ITEM_NAMES[t.process.output] },
+				jobs: t.jobs
 			})),
 		shop: SHOP,
 		repair_rate: REPAIR_RATE,
@@ -417,7 +418,7 @@ export function setWork(s: Session, index: number, templateId: string): Json {
 	}
 	const t = TEMPLATES[templateId];
 	if (!t || t.type !== 'ROUTINE') throw new GameError('작업대에는 상시 임무만 올릴 수 있습니다');
-	const probe = { id: 'probe', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear };
+	const probe = { id: 'probe', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear, jobs: t.jobs };
 	if (!availableTo(probe, s.p)) throw new GameError('조건 미충족 (직업 또는 장비)');
 	Object.assign(slot, { template: templateId, progress: 0, lastTick: s.now, tapUsed: 0 });
 	return { slot: index, template: templateId, name: t.name };

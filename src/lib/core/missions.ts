@@ -30,7 +30,15 @@ export interface MissionTemplate {
 	gear: number;
 	yieldItem: string | null; // 채집형: 보상이 이 아이템 시세에 연동
 	eventOnly: boolean; // 연계 이벤트에서만 등장
-	process: { input: string; output: string } | null; // 가공: 원자재를 사서 가공품으로 판다
+	process: Process | null; // 가공: 원자재를 사서 가공품으로 판다
+	jobs: string[] | null; // 이 직종만 할 수 있음 (예: 철괴 제련은 대장장이)
+}
+
+/** 가공: 원자재(input)를 사서 가공품(output)으로 판다. fuel이 있으면 연료값도 든다 */
+export interface Process {
+	input: string;
+	output: string;
+	fuel?: string;
 }
 
 type RawTemplate = { id: string; name: string; line: string; tier: string; type: string } & Partial<{
@@ -38,7 +46,8 @@ type RawTemplate = { id: string; name: string; line: string; tier: string; type:
 	gear: number;
 	yield_item: string;
 	event_only: boolean;
-	process: { input: string; output: string };
+	process: Process;
+	jobs: string[];
 }>;
 
 export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
@@ -54,7 +63,8 @@ export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
 			gear: t.gear ?? 0,
 			yieldItem: t.yield_item ?? null,
 			eventOnly: t.event_only ?? false,
-			process: t.process ?? null
+			process: t.process ?? null,
+			jobs: t.jobs ?? null
 		}
 	])
 );
@@ -169,9 +179,9 @@ export function priceRatio(w: World, itemId: string): number {
 	return price(e) / e.base;
 }
 
-/** 가공 보상: (가공품 시세 − 원자재 시세) × 몫. 원자재가 비싸지면 이윤이 줄고, 손해면 0 */
-export function processReward(w: World, p: { input: string; output: string }): number {
-	const margin = price(w.market[p.output]) - price(w.market[p.input]);
+/** 가공 보상: (가공품 시세 − 원자재 시세 − 연료 시세) × 몫. 원자재·연료가 비싸지면 이윤이 줄고, 손해면 0 */
+export function processReward(w: World, p: Process): number {
+	const margin = price(w.market[p.output]) - price(w.market[p.input]) - (p.fuel ? price(w.market[p.fuel]) : 0);
 	return Math.max(0, Math.round(margin * MB.process_share));
 }
 
@@ -251,7 +261,7 @@ export class Board {
 
 	private post(t: MissionTemplate, deadline: number | null, chain: Posting['chain'] = null): Posting {
 		const id = `${t.id}-${this.town.nextId++}`;
-		const mission: Mission = { id, line: t.line, tier: t.tier, type: t.type, reward: this.rewardFor(t.id), minRank: t.minRank, gear: t.gear };
+		const mission: Mission = { id, line: t.line, tier: t.tier, type: t.type, reward: this.rewardFor(t.id), minRank: t.minRank, gear: t.gear, jobs: t.jobs };
 		const p: Posting = { mission, template: t.id, posted: this.world.tick, deadline, chain, takenBy: null };
 		this.town.postings[id] = p;
 		return p;

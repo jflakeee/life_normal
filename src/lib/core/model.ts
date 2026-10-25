@@ -305,12 +305,14 @@ export interface Mission {
 	reward: number;
 	minRank: Rank | null;
 	gear: number;
+	jobs?: string[] | null; // 이 직종만
 }
 
 export function availableTo(m: Mission, p: Player): boolean {
 	if (m.tier === 'JOB') {
 		const job = p.jobs[m.line];
 		if (!job || (m.minRank && rankIndex(job.rank) < rankIndex(m.minRank))) return false;
+		if (m.jobs && !m.jobs.includes(job.job)) return false;
 	}
 	if (m.tier === 'BUSINESS' && !p.businesses.includes(m.line)) return false;
 	return m.gear === 0 || p.equipment.some((e) => e.price >= m.gear);

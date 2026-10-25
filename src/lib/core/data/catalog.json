@@ -239,6 +239,96 @@
    "name": "첫 대회 트로피",
    "line": "SPORT",
    "rarity": "LEGENDARY"
+  },
+  {
+   "id": "clover",
+   "name": "네잎클로버",
+   "line": "AGRICULTURE",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "old_seed",
+   "name": "오래된 씨앗",
+   "line": "AGRICULTURE",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "scarecrow_button",
+   "name": "허수아비 단추",
+   "line": "AGRICULTURE",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "giant_pumpkin_seed",
+   "name": "왕호박 씨",
+   "line": "AGRICULTURE",
+   "rarity": "RARE"
+  },
+  {
+   "id": "golden_ear",
+   "name": "황금 이삭",
+   "line": "AGRICULTURE",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "quartz",
+   "name": "석영",
+   "line": "MINING",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "mica",
+   "name": "운모",
+   "line": "MINING",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "pyrite",
+   "name": "황철석",
+   "line": "MINING",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "amethyst",
+   "name": "자수정",
+   "line": "MINING",
+   "rarity": "RARE"
+  },
+  {
+   "id": "gold_nugget",
+   "name": "금 원석",
+   "line": "MINING",
+   "rarity": "LEGENDARY"
+  },
+  {
+   "id": "seashell",
+   "name": "조개껍데기",
+   "line": "SEA",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "conch",
+   "name": "소라 껍데기",
+   "line": "SEA",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "sea_glass",
+   "name": "바다 유리",
+   "line": "SEA",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "pearl",
+   "name": "진주",
+   "line": "SEA",
+   "rarity": "RARE"
+  },
+  {
+   "id": "bottle_letter",
+   "name": "병 속 편지",
+   "line": "SEA",
+   "rarity": "LEGENDARY"
   }
  ]
 }

@@ -188,6 +188,59 @@
    "actions": {
     "exercise": 3
    }
+  },
+  {
+   "id": "farmer",
+   "name": "농부",
+   "line": "AGRICULTURE",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "gather": 2,
+    "care": 2
+   }
+  },
+  {
+   "id": "miner",
+   "name": "광부",
+   "line": "MINING",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "dig": 2
+   }
+  },
+  {
+   "id": "blacksmith",
+   "name": "대장장이",
+   "line": "MINING",
+   "entry": false,
+   "pay_mult": 1.15,
+   "requires": {
+    "from": "miner",
+    "rank": "REGULAR"
+   },
+   "bonus": {
+    "templates": [
+     "smelting",
+     "gem_cutting"
+    ],
+    "mult": 1.3
+   },
+   "actions": {
+    "dig": 3,
+    "make": 4
+   }
+  },
+  {
+   "id": "fisher",
+   "name": "어부",
+   "line": "SEA",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "explore": 2
+   }
   }
  ],
  "transfer": {

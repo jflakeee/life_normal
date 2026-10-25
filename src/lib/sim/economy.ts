@@ -52,10 +52,17 @@ import { ACTION_RULES, activeSpread, addActionXp, missingActionIds } from '$lib/
 
 const REQUEST_PROB = 0.4; // 플레이어가 의뢰를 고르는 비율 (행동 가정)
 const GEAR_BY_RANK: Partial<Record<Rank, number>> = { APPRENTICE: 200, EXPERT: 1_500, CHIEF: 6_000 };
-const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT'];
+const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT', 'MINING', 'SEA'];
 const MAX_BUSINESSES = 10;
 const EVENT_TAKE_P = 0.5;
-const YIELD_ITEMS: Partial<Record<Line, string[]>> = { CONSTRUCTION: ['wood', 'stone'], MEDICAL: ['herb'], HUNTING: ['meat', 'hide'] };
+const YIELD_ITEMS: Partial<Record<Line, string[]>> = {
+	CONSTRUCTION: ['wood', 'stone'],
+	MEDICAL: ['herb'],
+	HUNTING: ['meat', 'hide'],
+	AGRICULTURE: ['grain', 'vegetable'],
+	MINING: ['ore', 'coal'],
+	SEA: ['fish']
+};
 const PROCESS_TEMPLATES: Partial<Record<Line, (typeof TEMPLATES)[string][]>> = {};
 for (const t of Object.values(TEMPLATES)) if (t.process) (PROCESS_TEMPLATES[t.line] ??= []).push(t);
 const REFERENCE_WORLD = newTown(0).world; // 이벤트 없는 실행에서 쓰는 기준 시세
@@ -183,7 +190,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			let processed = false;
 			for (const t of PROCESS_TEMPLATES[line] ?? []) {
 				const rankOk = !t.minRank || rankIndex(job.rank) >= rankIndex(t.minRank);
-				const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
+				const gearOk = (t.gear === 0 || p.equipment.some((e) => e.price >= t.gear)) && (!t.jobs || t.jobs.includes(job.job));
 				const r = processReward(world, t.process!) * jobRewardMult(p, line, t.id);
 				if (rankOk && gearOk && r > bonus) {
 					bonus = r;

@@ -90,3 +90,19 @@ describe('upper jobs (직종)', () => {
 		expect(on.recovery).toBeGreaterThanOrEqual(0.8);
 	}, 120_000);
 });
+
+describe('production lines (농업·광업·해양)', () => {
+	it('farming sits in the safe range, mining and the sea match the other risky lines', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const I = B.idle;
+		const r = run({ seed: 1, daily: { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
+		const safe = (['TRANSPORT', 'CONSTRUCTION', 'MEDICAL', 'ART', 'MUSIC'] as const).map((l) => r.lineIncome([l]));
+		expect(r.lineIncome(['AGRICULTURE'])).toBeGreaterThanOrEqual(Math.min(...safe) * 0.95);
+		expect(r.lineIncome(['AGRICULTURE'])).toBeLessThanOrEqual(Math.max(...safe) * 1.05);
+		const risky = (r.lineIncome(['HUNTING']) + r.lineIncome(['SECURITY']) + r.lineIncome(['SPORT'])) / 3;
+		for (const l of ['MINING', 'SEA'] as const) {
+			expect(r.lineIncome([l]) / risky, l).toBeGreaterThan(0.85);
+			expect(r.lineIncome([l]) / risky, l).toBeLessThan(1.15);
+		}
+	}, 120_000);
+});

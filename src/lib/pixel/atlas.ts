@@ -23,6 +23,14 @@ export const SPRITES = {
 	'grass.0': tile(0),
 	'grass.1': tile(1),
 	'grass.flower': tile(2),
+	'plaza': tile(43), // 돌바닥
+	'farm.tl': tile(12),
+	'farm.t': tile(13),
+	'farm.tr': tile(14),
+	'farm.bl': tile(36),
+	'farm.b': tile(37),
+	'farm.br': tile(38),
+	'fence': tile(81),
 	'road.0': tile(39),
 	'road.1': tile(40),
 	'road.2': tile(41),
@@ -54,6 +62,9 @@ export const SPRITES = {
 	'icon.sign': tile(83), // 간판 → 예술
 	'icon.drum': tile(107), // 북 모양 항아리 → 음악
 	'icon.medal': tile(93), // 금화 → 메달, 운동
+	'icon.pitchfork': tile(116), // 농업
+	'icon.pickaxe': tile(115), // 광업
+	'icon.waterbarrel': tile(131), // 해양
 	'player': { sheet: 'player', x: 0, y: 0, w: 16, h: 16 },
 	'npc': { sheet: 'npc', x: 0, y: 0, w: 16, h: 16 }
 } satisfies Record<string, Sprite>;
@@ -69,5 +80,8 @@ export const BUILDINGS: Record<Exclude<Line, 'COLLECTING'>, { roof: 'blue' | 're
 	SECURITY: { roof: 'red', wall: 'stone', icon: 'icon.key' },
 	ART: { roof: 'blue', wall: 'wood', icon: 'icon.sign' },
 	MUSIC: { roof: 'red', wall: 'wood', icon: 'icon.drum' },
-	SPORT: { roof: 'blue', wall: 'stone', icon: 'icon.medal' }
+	SPORT: { roof: 'blue', wall: 'stone', icon: 'icon.medal' },
+	AGRICULTURE: { roof: 'red', wall: 'wood', icon: 'icon.pitchfork' },
+	MINING: { roof: 'blue', wall: 'stone', icon: 'icon.pickaxe' },
+	SEA: { roof: 'blue', wall: 'wood', icon: 'icon.waterbarrel' }
 };

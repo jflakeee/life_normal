@@ -10,8 +10,10 @@ describe('daily actions (일상 행동)', () => {
 			expect(s.length, id).toBeGreaterThan(0);
 			expect(s.reduce((t, [, w]) => t + w, 0), id).toBeCloseTo(1);
 		}
-		// 채집: 농업(아직 없음)을 빼고 치료·건축이 반반
-		expect(Object.fromEntries(activeSpread('gather'))).toEqual({ MEDICAL: 0.5, CONSTRUCTION: 0.5 });
+		// 농업이 생기면서 채집 경험이 데이터 수정 없이 농업에도 간다 (40%)
+		expect(Object.fromEntries(activeSpread('gather'))).toEqual({ AGRICULTURE: 0.4, MEDICAL: 0.3, CONSTRUCTION: 0.3 });
+		// 지식·공공은 아직 없어서 관찰 경험은 있는 계열끼리 나눈다
+		expect(activeSpread('observe').map(([l]) => l)).toEqual(['HUNTING', 'SECURITY', 'ART']);
 	});
 
 	it('levels up faster than hobbies and reports missing requirements', () => {

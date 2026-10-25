@@ -7,6 +7,7 @@ export interface Template {
 	min_rank: string | null;
 	gear: number;
 	process: { input: string; output: string } | null;
+	jobs: string[] | null;
 }
 
 export interface Catalog {

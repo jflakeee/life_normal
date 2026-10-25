@@ -11,11 +11,11 @@ import {
 	newTown,
 	TEMPLATES
 } from './missions';
-import { newPlayer } from './model';
+import { availableTo, newPlayer } from './model';
 
 describe('missions', () => {
-	it('has 63 templates (가공 4개, 새 계열 26개 포함)', () => {
-		expect(Object.keys(TEMPLATES)).toHaveLength(63);
+	it('has 83 templates (가공 4개, 새 계열 26개, 생산 계열 20개 포함)', () => {
+		expect(Object.keys(TEMPLATES)).toHaveLength(83);
 	});
 
 	it('every job has an entry-level routine mission', () => {
@@ -188,9 +188,9 @@ describe('performance lines (art, music, sport)', () => {
 		expect(rewardMult(p, 'TRANSPORT')).toBe(1); // 기존 계열은 명성과 무관
 	});
 
-	it('has 8 lines with buildings and 40 collectibles', async () => {
+	it('has 11 lines with buildings and 55 collectibles', async () => {
 		const { CATALOG } = await import('./collection');
-		expect(Object.keys(CATALOG)).toHaveLength(40);
+		expect(Object.keys(CATALOG)).toHaveLength(55);
 		for (const l of ['ART', 'MUSIC', 'SPORT'] as const) expect(Object.values(CATALOG).filter((c) => c.line === l)).toHaveLength(5);
 	});
 });
@@ -214,5 +214,29 @@ describe('art quality and sport matches', () => {
 		expect(performanceOutcome(() => 0, p, 'SPORT', 'jogging').label).toBeNull(); // 훈련은 경기가 아니다
 		expect(matchWinChance(10)).toBeGreaterThan(matchWinChance(1));
 		expect(matchWinChance(100)).toBe(0.85);
+	});
+});
+
+describe('production lines', () => {
+	it('smelting is blacksmith-only and pays less when coal is dear', () => {
+		const board = new Board(newTown(0));
+		const base = board.rewardFor('smelting'); // (철괴 18 − 광석 7 − 석탄 5) × 0.5
+		expect(base).toBe(3);
+		applyEffect(board.world, { kind: 'DEMAND', target: 'coal', value: 2, duration: 40 });
+		expect(board.rewardFor('smelting')).toBeLessThan(base);
+		const miner = newPlayer('m');
+		miner.jobs.MINING = { job: 'miner', processDone: 0, rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+		const t = TEMPLATES.smelting;
+		const m = { id: 'x', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear, jobs: t.jobs };
+		expect(availableTo(m, miner)).toBe(false);
+		miner.jobs.MINING.job = 'blacksmith';
+		expect(availableTo(m, miner)).toBe(true);
+	});
+
+	it('every new line has an entry routine for apprentices', () => {
+		for (const line of ['AGRICULTURE', 'MINING', 'SEA'] as const) {
+			const ok = Object.values(TEMPLATES).some((t) => t.line === line && t.tier === 'JOB' && t.type === 'ROUTINE' && !t.minRank && !t.jobs);
+			expect(ok, line).toBe(true);
+		}
 	});
 });

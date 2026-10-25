@@ -489,6 +489,185 @@
    "tier": "JOB",
    "type": "EMERGENCY",
    "event_only": true
+  },
+  {
+   "id": "garden",
+   "name": "텃밭 가꾸기",
+   "line": "AGRICULTURE",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "vegetable"
+  },
+  {
+   "id": "seed_swap",
+   "name": "씨앗 나눔",
+   "line": "AGRICULTURE",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "plowing",
+   "name": "밭 갈기",
+   "line": "AGRICULTURE",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "yield_item": "grain"
+  },
+  {
+   "id": "harvest_order",
+   "name": "작물 주문",
+   "line": "AGRICULTURE",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "yield_item": "grain"
+  },
+  {
+   "id": "process_flour",
+   "name": "밀가루 빻기",
+   "line": "AGRICULTURE",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "min_rank": "REGULAR",
+   "process": {
+    "input": "grain",
+    "output": "flour"
+   }
+  },
+  {
+   "id": "farm_contract",
+   "name": "농장 계약 납품",
+   "line": "AGRICULTURE",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "rock_hunt",
+   "name": "돌 줍기",
+   "line": "MINING",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "ore"
+  },
+  {
+   "id": "cave_walk",
+   "name": "동굴 탐방",
+   "line": "MINING",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "mining",
+   "name": "광석 채굴",
+   "line": "MINING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "yield_item": "ore"
+  },
+  {
+   "id": "coal_mining",
+   "name": "석탄 캐기",
+   "line": "MINING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "yield_item": "coal"
+  },
+  {
+   "id": "tunnel_survey",
+   "name": "갱도 탐사",
+   "line": "MINING",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "REGULAR",
+   "yield_item": "gem_rough"
+  },
+  {
+   "id": "smelting",
+   "name": "철괴 제련",
+   "line": "MINING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "jobs": [
+    "blacksmith"
+   ],
+   "process": {
+    "input": "ore",
+    "output": "iron_ingot",
+    "fuel": "coal"
+   }
+  },
+  {
+   "id": "gem_cutting",
+   "name": "보석 세공",
+   "line": "MINING",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "min_rank": "EXPERT",
+   "jobs": [
+    "blacksmith"
+   ],
+   "process": {
+    "input": "gem_rough",
+    "output": "gem"
+   }
+  },
+  {
+   "id": "mine_lease",
+   "name": "광산 임대",
+   "line": "MINING",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "beach_fishing",
+   "name": "바닷가 낚시",
+   "line": "SEA",
+   "tier": "HOBBY",
+   "type": "ROUTINE",
+   "yield_item": "fish"
+  },
+  {
+   "id": "tide_pool",
+   "name": "갯벌 체험",
+   "line": "SEA",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "net_fishing",
+   "name": "그물 고기잡이",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "yield_item": "fish"
+  },
+  {
+   "id": "process_fillet",
+   "name": "생선 손질",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "min_rank": "REGULAR",
+   "process": {
+    "input": "fish",
+    "output": "fish_fillet"
+   }
+  },
+  {
+   "id": "deep_sea",
+   "name": "먼바다 조업",
+   "line": "SEA",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "min_rank": "EXPERT",
+   "gear": 1500,
+   "yield_item": "fish"
+  },
+  {
+   "id": "fish_market",
+   "name": "수산시장 납품",
+   "line": "SEA",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
   }
  ],
  "chain": [
@@ -744,6 +923,70 @@
    "base_price": 30,
    "line": "HUNTING",
    "from": "hide"
+  },
+  {
+   "id": "grain",
+   "name": "곡물",
+   "base_price": 3,
+   "line": "AGRICULTURE"
+  },
+  {
+   "id": "vegetable",
+   "name": "채소",
+   "base_price": 4,
+   "line": "AGRICULTURE"
+  },
+  {
+   "id": "ore",
+   "name": "광석",
+   "base_price": 7,
+   "line": "MINING"
+  },
+  {
+   "id": "coal",
+   "name": "석탄",
+   "base_price": 5,
+   "line": "MINING"
+  },
+  {
+   "id": "gem_rough",
+   "name": "원석",
+   "base_price": 20,
+   "line": "MINING"
+  },
+  {
+   "id": "fish",
+   "name": "생선",
+   "base_price": 6,
+   "line": "SEA"
+  },
+  {
+   "id": "flour",
+   "name": "밀가루",
+   "base_price": 8,
+   "line": "AGRICULTURE",
+   "from": "grain"
+  },
+  {
+   "id": "iron_ingot",
+   "name": "철괴",
+   "base_price": 18,
+   "line": "MINING",
+   "from": "ore"
+  },
+  {
+   "id": "gem",
+   "name": "보석",
+   "base_price": 32,
+   "line": "MINING",
+   "from": "gem_rough"
+  },
+  {
+   "id": "fish_fillet",
+   "name": "손질 생선",
+   "base_price": 20,
+   "line": "SEA",
+   "from": "fish"
   }
  ]
 }
