@@ -135,7 +135,10 @@ export class Game {
 	}
 
 	setWork(slot: number, templateId: string) {
-		const name = this.catalog?.templates.find((t) => t.id === templateId)?.name ?? '임무';
+		const name =
+			this.catalog?.templates.find((t) => t.id === templateId)?.name ??
+			this.catalog?.actions.find((a) => a.task === templateId)?.name ??
+			'임무';
 		return this.run(() => this.api.command('POST', `/workbench/${slot}`, { template_id: templateId }), `작업대 ${slot + 1}에 ${name}`);
 	}
 

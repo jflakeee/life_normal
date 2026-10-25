@@ -1,27 +1,197 @@
 {
  "job": [
-  {"id": "taxi_driver", "name": "택시 기사", "line": "TRANSPORT", "entry": true, "pay_mult": 1.0},
-  {"id": "freight_driver", "name": "화물 기사", "line": "TRANSPORT", "entry": false, "pay_mult": 1.15,
-   "requires": {"from": "taxi_driver", "rank": "REGULAR"}},
-  {"id": "hunter", "name": "사냥꾼", "line": "HUNTING", "entry": true, "pay_mult": 1.0},
-  {"id": "carpenter", "name": "목수", "line": "CONSTRUCTION", "entry": true, "pay_mult": 1.0},
-  {"id": "architect", "name": "건축가", "line": "CONSTRUCTION", "entry": false, "pay_mult": 1.15,
-   "requires": {"from": "carpenter", "rank": "REGULAR", "requests": 10},
-   "bonus": {"templates": ["new_build", "disaster_recovery", "public_bid"], "mult": 1.3}},
-  {"id": "nurse", "name": "간호사", "line": "MEDICAL", "entry": true, "pay_mult": 1.0},
-  {"id": "pharmacist", "name": "약사", "line": "MEDICAL", "entry": false, "pay_mult": 1.1,
-   "requires": {"from": "nurse", "rank": "REGULAR", "processed": 30},
-   "bonus": {"templates": ["process_medicine"], "mult": 1.3}},
-  {"id": "doctor", "name": "의사", "line": "MEDICAL", "entry": false, "pay_mult": 1.2,
-   "requires": {"from": "nurse", "rank": "EXPERT", "fame": 50, "fee": 10000},
-   "bonus": {"templates": ["field_treatment"], "mult": 1.3}},
-  {"id": "guard", "name": "경비원", "line": "SECURITY", "entry": true, "pay_mult": 1.0},
-  {"id": "detective", "name": "형사", "line": "SECURITY", "entry": false, "pay_mult": 1.15,
-   "requires": {"from": "guard", "rank": "REGULAR"},
-   "bonus": {"templates": ["wanted", "robbery_arrest"], "mult": 1.3}},
-  {"id": "painter", "name": "화가", "line": "ART", "entry": true, "pay_mult": 1.0},
-  {"id": "musician", "name": "연주자", "line": "MUSIC", "entry": true, "pay_mult": 1.0},
-  {"id": "athlete", "name": "선수", "line": "SPORT", "entry": true, "pay_mult": 1.0}
+  {
+   "id": "taxi_driver",
+   "name": "택시 기사",
+   "line": "TRANSPORT",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "talk": 2
+   }
+  },
+  {
+   "id": "freight_driver",
+   "name": "화물 기사",
+   "line": "TRANSPORT",
+   "entry": false,
+   "pay_mult": 1.15,
+   "requires": {
+    "from": "taxi_driver",
+    "rank": "REGULAR"
+   },
+   "actions": {
+    "organize": 3,
+    "calculate": 2
+   }
+  },
+  {
+   "id": "hunter",
+   "name": "사냥꾼",
+   "line": "HUNTING",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "observe": 2,
+    "explore": 2
+   }
+  },
+  {
+   "id": "carpenter",
+   "name": "목수",
+   "line": "CONSTRUCTION",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "make": 2
+   }
+  },
+  {
+   "id": "architect",
+   "name": "건축가",
+   "line": "CONSTRUCTION",
+   "entry": false,
+   "pay_mult": 1.19,
+   "requires": {
+    "from": "carpenter",
+    "rank": "REGULAR",
+    "requests": 10
+   },
+   "bonus": {
+    "templates": [
+     "new_build",
+     "disaster_recovery",
+     "public_bid"
+    ],
+    "mult": 1.3
+   },
+   "actions": {
+    "make": 4,
+    "calculate": 3
+   }
+  },
+  {
+   "id": "nurse",
+   "name": "간호사",
+   "line": "MEDICAL",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "care": 2
+   }
+  },
+  {
+   "id": "pharmacist",
+   "name": "약사",
+   "line": "MEDICAL",
+   "entry": false,
+   "pay_mult": 1.13,
+   "requires": {
+    "from": "nurse",
+    "rank": "REGULAR",
+    "processed": 30
+   },
+   "bonus": {
+    "templates": [
+     "process_medicine"
+    ],
+    "mult": 1.3
+   },
+   "actions": {
+    "organize": 4,
+    "observe": 2
+   }
+  },
+  {
+   "id": "doctor",
+   "name": "의사",
+   "line": "MEDICAL",
+   "entry": false,
+   "pay_mult": 1.2,
+   "requires": {
+    "from": "nurse",
+    "rank": "EXPERT",
+    "fame": 50,
+    "fee": 10000
+   },
+   "bonus": {
+    "templates": [
+     "field_treatment"
+    ],
+    "mult": 1.3
+   },
+   "actions": {
+    "care": 5,
+    "observe": 4
+   }
+  },
+  {
+   "id": "guard",
+   "name": "경비원",
+   "line": "SECURITY",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "exercise": 2,
+    "observe": 2
+   }
+  },
+  {
+   "id": "detective",
+   "name": "형사",
+   "line": "SECURITY",
+   "entry": false,
+   "pay_mult": 1.15,
+   "requires": {
+    "from": "guard",
+    "rank": "REGULAR"
+   },
+   "bonus": {
+    "templates": [
+     "wanted",
+     "robbery_arrest"
+    ],
+    "mult": 1.3
+   },
+   "actions": {
+    "observe": 4,
+    "talk": 3
+   }
+  },
+  {
+   "id": "painter",
+   "name": "화가",
+   "line": "ART",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "practice": 2,
+    "observe": 2
+   }
+  },
+  {
+   "id": "musician",
+   "name": "연주자",
+   "line": "MUSIC",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "practice": 3
+   }
+  },
+  {
+   "id": "athlete",
+   "name": "선수",
+   "line": "SPORT",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "exercise": 3
+   }
+  }
  ],
- "transfer": {"cooldown_days": 7, "fee_share": 0.5}
+ "transfer": {
+  "cooldown_days": 7,
+  "fee_share": 0.5
+ }
 }

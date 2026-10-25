@@ -15,6 +15,7 @@ export interface Catalog {
 	shop: Record<string, number>;
 	repair_rate: number;
 	slots_max: number;
+	actions: { id: string; task: string; name: string; example: string; spread: [string, number][] }[];
 	daily_limit: number;
 	mission_seconds: number;
 	business: { open_cost: number; revenue: number; tax: number; settlements_per_day: number };
@@ -36,6 +37,8 @@ export interface PlayerState {
 	now: number;
 	money: number;
 	fame: Record<string, number>;
+	actions: Record<string, { name: string; level: number; xp: number; next: number; streak: number; today: number; bonus: number }>;
+	job_entry: Record<string, { job: string | null; missing: string[] }>;
 	skills: Record<string, { level: number; xp: number }>;
 	jobs: Record<
 		string,
@@ -88,6 +91,7 @@ export interface WorkSlot {
 	template: string | null;
 	name: string | null;
 	line: string | null;
+	action: boolean;
 	pending: number;
 	next_in: number | null; // 지금 건이 끝나기까지 남은 초
 	tap_left: number;

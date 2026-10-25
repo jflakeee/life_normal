@@ -47,7 +47,8 @@ import {
 	type Player
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
-import { jobPayMult, jobRewardMult, jobsOf, transferMissing } from '$lib/core/jobs';
+import { entryJob, jobPayMult, jobRewardMult, jobsOf, transferMissing } from '$lib/core/jobs';
+import { ACTION_RULES, activeSpread, addActionXp, missingActionIds } from '$lib/core/actions';
 
 const REQUEST_PROB = 0.4; // 플레이어가 의뢰를 고르는 비율 (행동 가정)
 const GEAR_BY_RANK: Partial<Record<Rank, number>> = { APPRENTICE: 200, EXPERT: 1_500, CHIEF: 6_000 };
@@ -84,6 +85,7 @@ interface Agent {
 	income: Record<Tier, { sum: number; n: number }>;
 	bizDue: number;
 	jobIncome: Record<string, { sum: number; n: number }>;
+	actionsDone: number;
 }
 
 export interface Params {
@@ -149,58 +151,70 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	let job = p.jobs[line];
 	const mtype: MissionType = forced ?? (rng.next() < REQUEST_PROB ? 'REQUEST' : 'ROUTINE');
 	let tier: Tier;
+	// 직업·상위 직종에 필요한 행동이 모자라면 이번 건은 그 행동을 한다 (2 G, 행동 경험, 취미 경험 배분)
+	const needed = neededActions(p, line, prm);
+	if (needed) {
+		const R = ACTION_RULES;
+		p.money += R.reward * rate;
+		led.earn('행동', R.reward * rate);
+		addActionXp(p, needed, Math.round(R.action_xp * rate));
+		for (const [l, w] of activeSpread(needed)) gainXp(p, l, Math.round(R.hobby_xp * w * rate));
+		a.actionsDone++;
+	}
 	// 예술 작품 품질, 운동 경기 승패 (경기는 의뢰일 때)
-	const outcome = performanceOutcome(() => rng.next(), p, line, mtype === 'REQUEST' ? 'match' : 'routine');
+	const outcome = needed ? { mult: 1, fame: 0, label: null } : performanceOutcome(() => rng.next(), p, line, mtype === 'REQUEST' ? 'match' : 'routine');
 	if (outcome.fame) addFame(p, line, outcome.fame);
 
-	// 1) 활동 수입 + 경험치
-	if (!job) {
-		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line) * performanceBase(line) * outcome.mult;
-		const items = YIELD_ITEMS[line];
-		if (board && items) gross *= items.reduce((s, i) => s + priceRatio(board.world, i), 0) / items.length;
-		const tax = gross * SALES_TAX;
-		p.money += gross - tax;
-		led.earn('취미 판매', gross);
-		led.spend('판매세', tax);
-		tier = 'HOBBY';
-	} else {
-		// 성과급: 일반 직업 임무(평균 5 G) 또는, 더 낫다면 가공 이윤 (플레이어는 이득인 쪽을 고른다)
-		let bonus = JOB_BONUS_PER_H * rng.uniform(0.5, 1.5) * MISSION_HOURS;
-		const world = board?.world ?? REFERENCE_WORLD;
-		let processed = false;
-		for (const t of PROCESS_TEMPLATES[line] ?? []) {
-			const rankOk = !t.minRank || rankIndex(job.rank) >= rankIndex(t.minRank);
-			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
-			const r = processReward(world, t.process!) * jobRewardMult(p, line, t.id);
-			if (rankOk && gearOk && r > bonus) {
-				bonus = r;
-				processed = true;
+	// 1) 활동 수입 + 경험치 (행동을 한 건이면 건너뛴다)
+	if (!needed) {
+		if (!job) {
+			let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line) * performanceBase(line) * outcome.mult;
+			const items = YIELD_ITEMS[line];
+			if (board && items) gross *= items.reduce((s, i) => s + priceRatio(board.world, i), 0) / items.length;
+			const tax = gross * SALES_TAX;
+			p.money += gross - tax;
+			led.earn('취미 판매', gross);
+			led.spend('판매세', tax);
+			tier = 'HOBBY';
+		} else {
+			// 성과급: 일반 직업 임무(평균 5 G) 또는, 더 낫다면 가공 이윤 (플레이어는 이득인 쪽을 고른다)
+			let bonus = JOB_BONUS_PER_H * rng.uniform(0.5, 1.5) * MISSION_HOURS;
+			const world = board?.world ?? REFERENCE_WORLD;
+			let processed = false;
+			for (const t of PROCESS_TEMPLATES[line] ?? []) {
+				const rankOk = !t.minRank || rankIndex(job.rank) >= rankIndex(t.minRank);
+				const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
+				const r = processReward(world, t.process!) * jobRewardMult(p, line, t.id);
+				if (rankOk && gearOk && r > bonus) {
+					bonus = r;
+					processed = true;
+				}
+			}
+			if (processed) job.processDone++;
+			const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line) * outcome.mult) * rate;
+			p.money += pay;
+			led.earn('직업 급여', pay);
+			job.jobMissions++;
+			if (mtype === 'REQUEST') job.requestsDone++;
+			tier = 'JOB';
+		}
+		gainXp(p, line, Math.round(MISSION_XP[mtype] * rate));
+		// 직접 수락한 의뢰는 3분 만에 끝나므로 늘 기한 절반 안 (빠른 완료)
+		if (mtype === 'REQUEST') addFame(p, line, FAME_RULES.request + FAME_RULES.fast_bonus);
+
+		// 2) 위험
+		if (RISKY.includes(line)) {
+			if (rng.next() < DEATH_P) {
+				const loss = Math.max(p.money, 0) * DEATH_MONEY_LOSS + 300;
+				p.money -= loss;
+				led.spend('사망 손실+치료', loss);
+			} else if (rng.next() < INJURY_P) {
+				const fee = rng.int(50, 300) * (job ? 1 : HOBBY_MEDICAL_DISCOUNT);
+				p.money -= fee;
+				led.spend('치료비', fee);
 			}
 		}
-		if (processed) job.processDone++;
-		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line) * outcome.mult) * rate;
-		p.money += pay;
-		led.earn('직업 급여', pay);
-		job.jobMissions++;
-		if (mtype === 'REQUEST') job.requestsDone++;
-		tier = 'JOB';
-	}
-	gainXp(p, line, Math.round(MISSION_XP[mtype] * rate));
-	// 직접 수락한 의뢰는 3분 만에 끝나므로 늘 기한 절반 안 (빠른 완료)
-	if (mtype === 'REQUEST') addFame(p, line, FAME_RULES.request + FAME_RULES.fast_bonus);
-
-	// 2) 위험
-	if (RISKY.includes(line)) {
-		if (rng.next() < DEATH_P) {
-			const loss = Math.max(p.money, 0) * DEATH_MONEY_LOSS + 300;
-			p.money -= loss;
-			led.spend('사망 손실+치료', loss);
-		} else if (rng.next() < INJURY_P) {
-			const fee = rng.int(50, 300) * (job ? 1 : HOBBY_MEDICAL_DISCOUNT);
-			p.money -= fee;
-			led.spend('치료비', fee);
-		}
-	}
+	} else tier = job ? 'JOB' : 'HOBBY';
 
 	// 3) 활동량 정산 (임무 8건마다 수리)
 	if (t % MISSIONS_PER_DAY === 0 && p.equipment.length) {
@@ -288,6 +302,22 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	}
 }
 
+/** 다음 목표(직업 또는 상위 직종)에 모자란 행동 하나. 목표에 가까워졌을 때만 챙긴다 */
+function neededActions(p: Player, line: Line, prm: Params): string | null {
+	const job = p.jobs[line];
+	if (!job) {
+		if (p.skills[line].level < 3) return null;
+		return missingActionIds(p, entryJob(line)?.actions)[0] ?? null;
+	}
+	if (!prm.transfers) return null;
+	for (const target of jobsOf(line).filter((j) => j.pay_mult > jobPayMult(job.job) && j.requires?.from === job.job)) {
+		if (rankIndex(job.rank) < rankIndex(target.requires!.rank)) continue;
+		const id = missingActionIds(p, target.actions)[0];
+		if (id) return id;
+	}
+	return null;
+}
+
 function resolveEvents(agents: Agent[], board: Board, led: Ledger, rng: Rng) {
 	for (const x of Object.values(board.town.postings).filter((p) => p.chain)) {
 		if (!board.town.postings[x.mission.id] || rng.next() > EVENT_TAKE_P) continue;
@@ -319,7 +349,8 @@ export function run(over: Partial<Params> = {}): Result {
 		days: {},
 		income: { HOBBY: { sum: 0, n: 0 }, JOB: { sum: 0, n: 0 }, BUSINESS: { sum: 0, n: 0 } },
 		bizDue: 0,
-		jobIncome: {}
+		jobIncome: {},
+		actionsDone: 0
 	}));
 	const board = prm.events ? new Board(newTown(prm.seed + 1, prm.players)) : null;
 	const daily = prm.daily;

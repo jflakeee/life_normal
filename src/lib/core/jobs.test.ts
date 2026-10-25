@@ -12,6 +12,8 @@ describe('jobs (직종)', () => {
 	it('taking a job starts at the entry job of that line', () => {
 		const p = newPlayer('p');
 		p.skills.MEDICAL.level = 5;
+		expect(() => takeJob(p, 'MEDICAL')).toThrow(/돌보기 1\/2/); // 행동 조건
+		p.actions = { care: { level: 2, xp: 0 } };
 		takeJob(p, 'MEDICAL');
 		expect(p.jobs.MEDICAL!.job).toBe('nurse');
 		expect(entryJob('CONSTRUCTION')!.name).toBe('목수');
@@ -23,6 +25,7 @@ describe('jobs (직종)', () => {
 		expect(() => transferJob(p, 'MEDICAL', 'pharmacist')).toThrow(/직급 REGULAR 이상.*가공 0\/30건/);
 		p.jobs.MEDICAL.rank = 'REGULAR';
 		p.jobs.MEDICAL.processDone = 30;
+		p.actions = { organize: { level: 4, xp: 0 }, observe: { level: 2, xp: 0 } };
 		const fee = jobTransferFee(p, 'MEDICAL', 'pharmacist');
 		expect(fee).toBe(RANK_REQ.REGULAR.fee / 2); // 견습으로 내려가므로 다음 승급(정규)비의 절반
 		const before = p.money;
@@ -38,6 +41,7 @@ describe('jobs (직종)', () => {
 		const p = newPlayer('p', 0);
 		p.jobs.MEDICAL = { job: 'nurse', rank: 'EXPERT', jobMissions: 0, requestsDone: 0, processDone: 0 };
 		p.fame.MEDICAL = 50;
+		p.actions = { care: { level: 5, xp: 0 }, observe: { level: 4, xp: 0 } };
 		const fee = jobTransferFee(p, 'MEDICAL', 'doctor');
 		expect(fee).toBe(10_000 + RANK_REQ.EXPERT.fee / 2);
 		expect(() => transferJob(p, 'MEDICAL', 'doctor')).toThrow(/전직비/);
@@ -50,7 +54,7 @@ describe('jobs (직종)', () => {
 		p.jobs.MEDICAL = { job: 'nurse', rank: 'REGULAR', jobMissions: 0, requestsDone: 0, processDone: 0 };
 		const nurse = hourlyPay(p.jobs.MEDICAL);
 		p.jobs.MEDICAL.job = 'pharmacist';
-		expect(hourlyPay(p.jobs.MEDICAL) / nurse).toBeCloseTo(1.1);
+		expect(hourlyPay(p.jobs.MEDICAL) / nurse).toBeCloseTo(1.13);
 		expect(jobRewardMult(p, 'MEDICAL', 'process_medicine')).toBe(1.3);
 		expect(jobRewardMult(p, 'MEDICAL', 'treat')).toBe(1);
 	});

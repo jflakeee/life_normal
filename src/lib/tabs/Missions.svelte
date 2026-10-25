@@ -3,7 +3,8 @@
 	import type { Game } from '$lib/game.svelte';
 
 	let { game }: { game: Game } = $props();
-	let filter = $state<'ROUTINE' | 'REQUEST' | 'EMERGENCY'>('ROUTINE');
+	let filter = $state<'ACTION' | 'ROUTINE' | 'REQUEST' | 'EMERGENCY'>('ROUTINE');
+	const actions = $derived(game.catalog!.actions);
 
 	const lines = $derived(game.catalog!.lines);
 	const postings = $derived(game.board.postings.filter((x) => !x.chain && x.type === filter));
@@ -28,12 +29,38 @@
 	{/each}
 
 	<div class="chips" role="tablist" aria-label="임무 종류">
-		{#each ['ROUTINE', 'REQUEST', 'EMERGENCY'] as const as t (t)}
-			<button role="tab" aria-selected={filter === t} class:on={filter === t} onclick={() => (filter = t)}>{TYPE_NAME[t]}</button>
+		{#each ['ACTION', 'ROUTINE', 'REQUEST', 'EMERGENCY'] as const as t (t)}
+			<button role="tab" aria-selected={filter === t} class:on={filter === t} onclick={() => (filter = t)}>{t === 'ACTION' ? '행동' : TYPE_NAME[t]}</button>
 		{/each}
 	</div>
 
-	{#if filter === 'ROUTINE'}
+	{#if filter === 'ACTION'}
+		<p class="quiet">일상 행동은 여러 계열 취미 경험을 조금씩 쌓고, 직업을 갖거나 전직할 때 조건이 돼요. 한 건에 2 G</p>
+		<ul class="list">
+			{#each actions as a (a.id)}
+				{@const st = game.player!.actions[a.id]}
+				<li class="panel row">
+					<div>
+						<h2>{a.name} <span class="quiet num">Lv {st.level}</span></h2>
+						<p class="quiet">{a.example} · {a.spread.map(([l]) => lines[l]).join('·')} 취미로{st.bonus ? ` · 습관 +${st.bonus}%` : ''}</p>
+					</div>
+					<div class="put">
+						{#each game.slots as s (s.index)}
+							<button
+								class="secondary"
+								class:on={s.template === a.task}
+								disabled={game.busy || s.template === a.task}
+								aria-label="작업대 {s.index + 1}에 {a.name} 올리기"
+								onclick={() => game.setWork(s.index, a.task)}
+							>
+								{game.slots.length === 1 ? (s.template === a.task ? '진행 중' : '올리기') : s.index + 1}
+							</button>
+						{/each}
+					</div>
+				</li>
+			{/each}
+		</ul>
+	{:else if filter === 'ROUTINE'}
 		<p class="quiet">
 			작업대:
 			{game.slots.map((s) => `${s.index + 1} ${s.name ?? '비어 있음'}`).join(', ')}

@@ -1,0 +1,147 @@
+{
+ "action": [
+  {
+   "id": "gather",
+   "name": "채집",
+   "example": "산책하며 열매·풀 모으기",
+   "spread": {
+    "AGRICULTURE": 0.4,
+    "MEDICAL": 0.3,
+    "CONSTRUCTION": 0.3
+   }
+  },
+  {
+   "id": "dig",
+   "name": "채굴",
+   "example": "돌 캐기, 땅 파기",
+   "spread": {
+    "MINING": 0.6,
+    "CONSTRUCTION": 0.4
+   }
+  },
+  {
+   "id": "observe",
+   "name": "관찰",
+   "example": "새·별·사람 살피기",
+   "spread": {
+    "KNOWLEDGE": 0.4,
+    "HUNTING": 0.2,
+    "SECURITY": 0.2,
+    "ART": 0.2
+   }
+  },
+  {
+   "id": "organize",
+   "name": "정리",
+   "example": "방 정리, 물건 분류",
+   "spread": {
+    "CIVIC": 0.4,
+    "MEDICAL": 0.3,
+    "TRANSPORT": 0.3
+   }
+  },
+  {
+   "id": "record",
+   "name": "기록",
+   "example": "일기, 메모",
+   "spread": {
+    "KNOWLEDGE": 0.5,
+    "ART": 0.3,
+    "CIVIC": 0.2
+   }
+  },
+  {
+   "id": "talk",
+   "name": "대화",
+   "example": "이웃과 인사·수다",
+   "spread": {
+    "CIVIC": 0.4,
+    "MUSIC": 0.2,
+    "TRANSPORT": 0.2,
+    "SECURITY": 0.2
+   }
+  },
+  {
+   "id": "care",
+   "name": "돌보기",
+   "example": "화분·동물·이웃 돌봄",
+   "spread": {
+    "MEDICAL": 0.5,
+    "AGRICULTURE": 0.3,
+    "HUNTING": 0.2
+   }
+  },
+  {
+   "id": "make",
+   "name": "만들기",
+   "example": "고치기, 조립",
+   "spread": {
+    "CONSTRUCTION": 0.5,
+    "MINING": 0.3,
+    "ART": 0.2
+   }
+  },
+  {
+   "id": "exercise",
+   "name": "운동",
+   "example": "스트레칭, 걷기",
+   "spread": {
+    "SPORT": 0.6,
+    "TRANSPORT": 0.2,
+    "SECURITY": 0.2
+   }
+  },
+  {
+   "id": "practice",
+   "name": "연습",
+   "example": "악기·노래·그림 연습",
+   "spread": {
+    "MUSIC": 0.5,
+    "ART": 0.5
+   }
+  },
+  {
+   "id": "explore",
+   "name": "탐색",
+   "example": "골목·바닷가 탐험",
+   "spread": {
+    "SEA": 0.4,
+    "COLLECTING": 0.4,
+    "HUNTING": 0.2
+   }
+  },
+  {
+   "id": "calculate",
+   "name": "계산",
+   "example": "가계부, 흥정",
+   "spread": {
+    "CIVIC": 0.3,
+    "TRANSPORT": 0.3,
+    "CONSTRUCTION": 0.2,
+    "KNOWLEDGE": 0.2
+   }
+  }
+ ],
+ "rules": {
+  "xp_base": 50,
+  "xp_exponent": 1.3,
+  "max_level": 10,
+  "action_xp": 10,
+  "hobby_xp": 6,
+  "reward": 2,
+  "habit": {
+   "daily_count": 10,
+   "tiers": [
+    [
+     3,
+     0.1
+    ],
+    [
+     7,
+     0.2
+    ]
+   ],
+   "max_active": 3
+  }
+ }
+}

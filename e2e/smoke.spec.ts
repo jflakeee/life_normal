@@ -113,3 +113,15 @@ test('자리를 비웠다 돌아오면 요약이 뜨고, 한 번에 받으면 �
 	await expect(sheet).toBeHidden();
 	await expect(page.getByRole('button', { name: '받을 보상 없음' })).toBeDisabled();
 });
+
+test('일상 행동을 작업대에 올리고, 나 탭에서 직업 조건으로 보인다', async ({ page }) => {
+	await page.goto('./#missions');
+	await page.getByRole('tab', { name: '행동' }).click();
+	await page.getByRole('button', { name: '작업대 1에 돌보기 올리기' }).click();
+	await expect(page.getByRole('status')).toHaveText('작업대 1에 돌보기');
+	await page.getByRole('button', { name: '홈' }).click();
+	await expect(page.getByRole('button', { name: /탭해서 10초 당기기: 돌보기/ })).toBeVisible();
+	await page.getByRole('button', { name: '나' }).click();
+	await expect(page.getByRole('heading', { name: '일상 행동' })).toBeVisible();
+	await expect(page.getByText('간호사 조건: 취미 Lv 1/5, 돌보기 1/2')).toBeVisible();
+});

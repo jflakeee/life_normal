@@ -1,4 +1,5 @@
 /** 데이터 모델과 규칙. 수치는 data/balance.json. 상태는 순수 데이터라 그대로 저장할 수 있다. */
+import { actionMissing, type ActionState, type HabitState } from './actions';
 import { xpMult } from './collection';
 import { entryJob, jobPayMult, JOBS, rankAfterTransfer, transferFee, transferMissing } from './jobs';
 import B from './data/balance.json';
@@ -98,6 +99,8 @@ export interface Player {
 	buildings: Record<Line, number>; // 계열 건물 레벨
 	equipment: Equipment[];
 	collection: string[];
+	actions?: Record<string, ActionState>; // 일상 행동 숙련
+	habits?: Record<string, HabitState>; // 습관 (연속 일수)
 }
 
 export function newPlayer(id: string, money = 0): Player {
@@ -141,11 +144,19 @@ export function addXp(s: SkillState, amount: number): number {
 export const gainXp = (p: Player, line: Line, base: number) =>
 	addXp(p.skills[line], Math.round(base * xpMult(p.collection, line)));
 
-export const canTakeJob = (p: Player, line: Line) =>
-	line !== 'COLLECTING' && p.skills[line].level >= JOB_UNLOCK_LEVEL;
+/** 직업을 갖는 데 부족한 조건: 취미 Lv 5와 진입 직종의 행동 조건 */
+export function takeJobMissing(p: Player, line: Line): string[] {
+	if (line === 'COLLECTING') return ['직업이 없는 계열'];
+	const out: string[] = [];
+	if (p.skills[line].level < JOB_UNLOCK_LEVEL) out.push(`취미 Lv ${p.skills[line].level}/${JOB_UNLOCK_LEVEL}`);
+	return out.concat(actionMissing(p, entryJob(line)?.actions));
+}
+
+export const canTakeJob = (p: Player, line: Line) => takeJobMissing(p, line).length === 0;
 
 export function takeJob(p: Player, line: Line): void {
-	if (!canTakeJob(p, line)) throw new RuleError(`취미 Lv ${JOB_UNLOCK_LEVEL} 필요`);
+	const missing = takeJobMissing(p, line);
+	if (missing.length) throw new RuleError('직업 조건 부족: ' + missing.join(', '));
 	p.jobs[line] ??= { job: entryJob(line)?.id ?? line.toLowerCase(), rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0, processDone: 0 };
 }
 

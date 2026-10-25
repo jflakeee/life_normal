@@ -10,6 +10,20 @@
 </script>
 
 <div class="stack">
+	<details class="panel actions" open>
+		<summary><h2>일상 행동</h2></summary>
+		<p class="quiet">같은 행동을 하루 10건씩 3일 이어 하면 습관이 돼요 (+10%, 7일이면 +20%)</p>
+		<ul>
+			{#each Object.entries(p.actions) as [id, a] (id)}
+				<li>
+					<span class="name">{a.name} <span class="num quiet">Lv {a.level}</span></span>
+					<div class="bar" aria-label="{a.name} 경험치 {a.xp}/{a.next}"><span style:width="{Math.min(100, (a.xp / a.next) * 100)}%"></span></div>
+					<span class="quiet num habit">{a.streak ? `습관 ${a.streak}일` : a.today ? `오늘 ${a.today}건` : ''}</span>
+				</li>
+			{/each}
+		</ul>
+	</details>
+
 	{#each order as line (line)}
 		{@const sk = p.skills[line]}
 		{@const job = p.jobs[line]}
@@ -35,10 +49,13 @@
 				{:else if job.rank !== 'CHIEF'}
 					<p class="quiet">다음 승급까지: {job.missing.join(', ')}</p>
 				{/if}
-			{:else if sk.level >= 5}
-				<button class="secondary" disabled={game.busy} onclick={() => game.takeJob(line)}>{lines[line]} 직업 시작</button>
-			{:else}
-				<p class="quiet">Lv 5가 되면 직업을 가질 수 있어요</p>
+			{:else if p.job_entry[line]}
+				{@const entry = p.job_entry[line]}
+				{#if entry.missing.length === 0}
+					<button class="secondary" disabled={game.busy} onclick={() => game.takeJob(line)}>{entry.job} 되기</button>
+				{:else}
+					<p class="quiet">{entry.job} 조건: {entry.missing.join(', ')}</p>
+				{/if}
 			{/if}
 			{#if job && job.transfers.length}
 				<details class="transfers">
@@ -95,6 +112,27 @@
 </div>
 
 <style>
+	.actions summary {
+		cursor: pointer;
+		list-style: none;
+	}
+	.actions ul {
+		list-style: none;
+		margin: 8px 0 0;
+		padding: 0;
+		display: grid;
+		gap: 8px;
+	}
+	.actions li {
+		display: grid;
+		grid-template-columns: 7.5em 1fr 4.5em;
+		align-items: center;
+		gap: 8px;
+	}
+	.actions .habit {
+		text-align: right;
+		font-size: 12px;
+	}
 	.transfers summary {
 		cursor: pointer;
 		color: var(--action);

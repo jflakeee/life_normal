@@ -1,6 +1,7 @@
 /** 직종: 계열 안에서 고르는 일. 숙련도·명성·건물은 계열에, 직급·특화는 직종에 붙는다. 데이터는 data/jobs.json */
 import J from './data/jobs.json';
 import { RANKS, rankIndex, type Line, type Rank } from './enums';
+import { actionMissing } from './actions';
 import type { Player } from './model';
 
 export interface JobRequirement {
@@ -20,9 +21,10 @@ export interface JobDef {
 	pay_mult: number;
 	requires?: JobRequirement;
 	bonus?: { templates: string[]; mult: number };
+	actions?: Record<string, number>; // 행동 조건 (행동 id → 숙련 Lv)
 }
 
-export const JOBS: Record<string, JobDef> = Object.fromEntries((J.job as JobDef[]).map((j) => [j.id, j]));
+export const JOBS: Record<string, JobDef> = Object.fromEntries((J.job as unknown as JobDef[]).map((j) => [j.id, j]));
 export const TRANSFER = J.transfer;
 
 export const jobsOf = (line: Line) => Object.values(JOBS).filter((j) => j.line === line);
@@ -59,13 +61,14 @@ export function transferMissing(p: Player, line: Line, jobId: string, fee: numbe
 	if (!target || target.line !== line) return ['이 계열의 직종이 아님'];
 	if (job.job === jobId) return ['지금 직종'];
 	const r = target.requires;
-	if (!r) return []; // 진입 직종으로 돌아가는 것은 조건 없음
+	if (!r) return []; // 같은 계열의 진입 직종으로 돌아가는 것은 조건 없음 (이미 그 계열에서 일해 온 사람)
 	const out: string[] = [];
 	if (job.job !== r.from) out.push(`${JOBS[r.from]?.name ?? r.from}에서만 전직`);
 	if (rankIndex(job.rank) < rankIndex(r.rank)) out.push(`직급 ${r.rank} 이상`);
 	if (r.requests && job.requestsDone < r.requests) out.push(`의뢰 완료 ${job.requestsDone}/${r.requests}건`);
 	if (r.processed && (job.processDone ?? 0) < r.processed) out.push(`가공 ${job.processDone ?? 0}/${r.processed}건`);
 	if (r.fame && (p.fame[line] ?? 0) < r.fame) out.push(`명성 ${p.fame[line] ?? 0}/${r.fame}`);
+	out.push(...actionMissing(p, target.actions));
 	if (p.money < fee) out.push(`전직비 ${Math.floor(p.money).toLocaleString('ko-KR')}/${fee.toLocaleString('ko-KR')} G`);
 	return out;
 }

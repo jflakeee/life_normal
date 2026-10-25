@@ -352,7 +352,7 @@ describe('fame migration', () => {
 		const st = await old.get<{ fame: Record<string, number> }>('/state');
 		expect(st.fame.HUNTING).toBe(30);
 		expect(st.fame.TRANSPORT).toBe(0);
-		expect(old.game.data.version).toBe(7); // v4 → v5(명성) → v6(일꾼·건물) → v7(직종)
+		expect(old.game.data.version).toBe(8); // v4 → v5(명성) → v6(일꾼·건물) → v7(직종) → v8(일상 행동)
 		expect('reputation' in old.game.data.player).toBe(false);
 	});
 });
@@ -459,6 +459,7 @@ describe('job transfer (직종)', () => {
 		const { be, advance } = setup();
 		be.game.query((s) => {
 			s.p.jobs.SECURITY = { job: 'guard', rank: 'REGULAR', jobMissions: 0, requestsDone: 0, processDone: 0 };
+			s.p.actions = { observe: { level: 4, xp: 0 }, talk: { level: 3, xp: 0 } };
 		});
 		type J = { jobs: Record<string, { job_name: string; transfers: { job: string; missing: string[]; fee: number }[] }> };
 		const opt = (await be.get<J>('/state')).jobs.SECURITY.transfers.find((t) => t.job === 'detective')!;
@@ -481,5 +482,44 @@ describe('job transfer (직종)', () => {
 		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
 		const st = await old.get<{ jobs: Record<string, { job: string; rank: string }> }>('/state');
 		expect(st.jobs.MEDICAL).toMatchObject({ job: 'nurse', rank: 'EXPERT' });
+	});
+});
+
+describe('daily actions on the workbench', () => {
+	it('pays 2 G, raises the action and spreads hobby xp, and counts toward a habit', async () => {
+		const { be, advance } = setup();
+		await be.command('POST', '/workbench/0', { template_id: 'act.care' });
+		advance(3 * TICK_SECONDS);
+		const c = await be.command<{ claimed: { reward: number; action: string }[] }>('POST', '/claims');
+		expect(c.claimed.map((x) => x.reward)).toEqual([2, 2, 2]);
+		type A = { actions: Record<string, { level: number; xp: number; today: number }>; skills: Record<string, { xp: number }> };
+		const st = await be.get<A>('/state');
+		expect(st.actions.care).toMatchObject({ level: 1, xp: 30, today: 3 });
+		expect(st.skills.MEDICAL.xp).toBeGreaterThan(0); // 돌보기 → 치료 취미로
+		expect(st.skills.HUNTING.xp).toBeGreaterThan(0); // 돌보기 → 사냥 취미로
+		expect(audit(be.game.data)).toBe(0);
+	});
+
+	it('shows what is missing to take a job, including actions', async () => {
+		const { be } = setup();
+		be.game.query((s) => {
+			s.p.skills.MEDICAL.level = 5;
+		});
+		const st = await be.get<{ job_entry: Record<string, { job: string; missing: string[] }> }>('/state');
+		expect(st.job_entry.MEDICAL).toEqual({ job: '간호사', missing: ['돌보기 1/2'] });
+		await expect(be.command('POST', '/jobs/MEDICAL')).rejects.toMatchObject({ status: 409 });
+	});
+
+	it('a v7 save starts with no action levels and keeps its jobs', async () => {
+		const { store, clock } = setup();
+		const d = JSON.parse(store.raw!);
+		d.version = 7;
+		delete d.player.actions;
+		delete d.player.habits;
+		d.player.jobs = { MEDICAL: { job: 'nurse', rank: 'REGULAR', jobMissions: 0, requestsDone: 0, processDone: 0 } };
+		const old = createLocalBackend({ store: { load: () => d, save() {} }, clock: () => clock.t, tz: () => 0 });
+		const st = await old.get<{ jobs: Record<string, { job: string }>; actions: Record<string, { level: number }> }>('/state');
+		expect(st.jobs.MEDICAL.job).toBe('nurse');
+		expect(st.actions.care.level).toBe(1);
 	});
 });

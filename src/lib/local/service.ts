@@ -13,6 +13,7 @@ import {
 	BUSINESS_REVENUE,
 	addFame,
 	BUILDINGS_RULES,
+	takeJobMissing,
 	jobTransferFee,
 	transferJob,
 	FAME_RULES,
@@ -50,9 +51,25 @@ import {
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
 import * as wb from './workbench';
+import {
+	ACTION_PREFIX,
+	ACTION_RULES,
+	ACTIONS,
+	actionIdOf,
+	actionXpToNext,
+	activeSpread,
+	addActionXp,
+	habitMult,
+	habitStreak,
+	isActionTask,
+	recordHabit
+} from '$lib/core/actions';
 import { entryJob, jobRewardMult, JOBS, jobsOf, TRANSFER, transferMissing } from '$lib/core/jobs';
 
 type Json = Record<string, unknown>;
+
+/** 작업대 일의 이름: 상시 임무 또는 일상 행동 */
+const taskName = (task: string) => (isActionTask(task) ? ACTIONS[actionIdOf(task)]?.name : TEMPLATES[task]?.name) ?? task;
 
 const CHAIN_NAMES = Object.fromEntries(CHAINS.map((c) => [c.id, c.name]));
 const ITEM_NAMES = Object.fromEntries(Object.values(ITEMS).map((i) => [i.id, i.name]));
@@ -66,7 +83,7 @@ const IDEMPOTENCY_TTL = 86_400;
 const IDEMPOTENCY_KEEP = 200;
 const LEDGER_RECENT = 200;
 const RISKY: Line[] = ['HUNTING', 'SECURITY', 'SPORT'];
-export const SAVE_VERSION = 7; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물, v7: 직종
+export const SAVE_VERSION = 8; // v4: 대기열 → 작업대, v5: 평판 → 계열별 명성, v6: 일꾼·건물, v7: 직종, v8: 일상 행동
 
 /** 플레이어에게 그대로 보여 줄 수 있는 규칙 위반 (HTTP 409에 해당) */
 export class GameError extends Error {}
@@ -220,6 +237,27 @@ export function state(s: Session): Json {
 		now: s.now,
 		money: Math.round(p.money * 100) / 100,
 		fame: p.fame,
+		actions: Object.fromEntries(
+			Object.values(ACTIONS).map((a) => {
+				const st = p.actions?.[a.id] ?? { level: 1, xp: 0 };
+				const today = wb.dayKey(s.now, s.tz);
+				return [
+					a.id,
+					{
+						name: a.name,
+						level: st.level,
+						xp: st.xp,
+						next: actionXpToNext(st.level),
+						streak: habitStreak(p, a.id, today),
+						today: p.habits?.[a.id]?.day === today ? p.habits[a.id].count : 0,
+						bonus: Math.round((habitMult(p, a.id, today) - 1) * 100)
+					}
+				];
+			})
+		),
+		job_entry: Object.fromEntries(
+			LINES.filter((l) => l !== 'COLLECTING' && !p.jobs[l]).map((l) => [l, { job: entryJob(l)?.name ?? null, missing: takeJobMissing(p, l) }])
+		),
 		skills: p.skills,
 		jobs: Object.fromEntries(
 			Object.entries(p.jobs).map(([l, j]) => [
@@ -306,6 +344,7 @@ export function catalog(): Json {
 		business: { open_cost: BUSINESS_OPEN_COST, revenue: BUSINESS_REVENUE, tax: BUSINESS_TAX, settlements_per_day: SETTLE_CAP },
 		workers: WORKERS,
 		buildings: BUILDINGS_RULES,
+		actions: Object.values(ACTIONS).map((a) => ({ id: a.id, task: ACTION_PREFIX + a.id, name: a.name, example: a.example, spread: activeSpread(a.id) })),
 		jobs: Object.values(JOBS).map((j) => ({ id: j.id, name: j.name, line: j.line, entry: j.entry, pay_mult: j.pay_mult }))
 	};
 }
@@ -345,8 +384,9 @@ export function workbenchState(s: Session): Json {
 			index: i,
 			unlocked: i < open,
 			template: x.template,
-			name: x.template ? TEMPLATES[x.template].name : null,
-			line: x.template ? TEMPLATES[x.template].line : null,
+			name: x.template ? taskName(x.template) : null,
+			line: x.template && !isActionTask(x.template) ? TEMPLATES[x.template].line : null,
+			action: x.template ? isActionTask(x.template) : false,
 			pending: x.pending.length,
 			next_in: x.template ? TICK_SECONDS - x.progress : null,
 			tap_left: x.template ? wb.TAP_MAX_PER_RUN - x.tapUsed : 0
@@ -369,6 +409,12 @@ function slotAt(s: Session, index: number): wb.Slot {
 /** 작업대에 상시 임무를 올린다 (이미 있던 일은 바뀐다. 끝난 작업은 그대로 받을 수 있다) */
 export function setWork(s: Session, index: number, templateId: string): Json {
 	const slot = slotAt(s, index);
+	if (isActionTask(templateId)) {
+		// 일상 행동: 누구나 할 수 있다
+		if (!ACTIONS[actionIdOf(templateId)]) throw new GameError('없는 행동입니다');
+		Object.assign(slot, { template: templateId, progress: 0, lastTick: s.now, tapUsed: 0 });
+		return { slot: index, template: templateId, name: taskName(templateId) };
+	}
 	const t = TEMPLATES[templateId];
 	if (!t || t.type !== 'ROUTINE') throw new GameError('작업대에는 상시 임무만 올릴 수 있습니다');
 	const probe = { id: 'probe', line: t.line, tier: t.tier, type: t.type, reward: 0, minRank: t.minRank, gear: t.gear };
@@ -446,6 +492,22 @@ function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { re
 	return item;
 }
 
+/** 일상 행동 한 건 정산: 2 G, 행동 경험, 여러 계열 취미 경험 (습관 보너스), 습관 기록 */
+function settleAction(s: Session, id: string, rate: number, at: number, ref: string): Json {
+	const p = s.p;
+	const R = ACTION_RULES;
+	const day = wb.dayKey(at, s.tz);
+	const mult = habitMult(p, id, day) * rate;
+	s.pay('action_reward', R.reward * rate, ref);
+	const lv = addActionXp(p, id, Math.round(R.action_xp * mult));
+	for (const [l, w] of activeSpread(id)) gainXp(p, l, Math.round(R.hobby_xp * w * mult));
+	recordHabit(p, id, day);
+	s.d.missionsDone++;
+	if (s.d.missionsDone % MISSIONS_PER_DAY === 0 && p.equipment.length)
+		s.pay('repair', -Math.max(...p.equipment.map(repairCost)), ref);
+	return { name: ACTIONS[id].name, reward: R.reward * rate, rate, action: id, level_up: lv > 0 };
+}
+
 export function claim(s: Session): Json {
 	const p = s.p;
 	const results: Json[] = [];
@@ -454,6 +516,10 @@ export function claim(s: Session): Json {
 		.flatMap((slot, i) => slot.pending.map((w) => ({ ...w, slot: i })))
 		.sort((a, b) => a.at - b.at || a.slot - b.slot);
 	for (const w of work) {
+		if (isActionTask(w.template)) {
+			results.push(settleAction(s, actionIdOf(w.template), w.rate, w.at, `work:${w.slot}:${w.at}`));
+			continue;
+		}
 		const t = TEMPLATES[w.template];
 		const ref = `work:${w.slot}:${w.at}`;
 		const reward = Math.round(s.board.rewardFor(w.template) * w.rate * rewardMult(p, t.line));
@@ -662,6 +728,11 @@ export function migrateSave(d: SaveData): SaveData {
 			j!.processDone = 0;
 		}
 		d.version = 7;
+	}
+	if (d.version === 7) {
+		d.player.actions = {};
+		d.player.habits = {};
+		d.version = 8;
 	}
 	return d;
 }
