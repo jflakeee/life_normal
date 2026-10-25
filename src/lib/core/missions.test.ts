@@ -174,16 +174,16 @@ describe('performance lines (art, music, sport)', () => {
 		}
 	});
 
-	it('base reward is scaled down, then grows with fame up to ×2', async () => {
+	it('base reward is scaled per line, then grows with fame up to ×1.5', async () => {
 		const { fameMult, rewardMult, PERFORMANCE } = await import('./model');
 		const board = new Board(newTown(0));
-		expect(board.rewardFor('busking')).toBe(Math.round(5 * PERFORMANCE.base_factor));
+		expect(board.rewardFor('busking')).toBe(Math.round(5 * PERFORMANCE.base_factor.MUSIC));
 		const p = newPlayer('p');
 		expect(fameMult(p, 'MUSIC')).toBe(1);
 		p.fame.MUSIC = 50;
-		expect(fameMult(p, 'MUSIC')).toBeCloseTo(1.5);
+		expect(fameMult(p, 'MUSIC')).toBeCloseTo(1.25);
 		p.fame.MUSIC = 100;
-		expect(fameMult(p, 'MUSIC')).toBe(2);
+		expect(fameMult(p, 'MUSIC')).toBe(1.5);
 		p.fame.TRANSPORT = 100;
 		expect(rewardMult(p, 'TRANSPORT')).toBe(1); // 기존 계열은 명성과 무관
 	});
@@ -192,5 +192,27 @@ describe('performance lines (art, music, sport)', () => {
 		const { CATALOG } = await import('./collection');
 		expect(Object.keys(CATALOG)).toHaveLength(40);
 		for (const l of ['ART', 'MUSIC', 'SPORT'] as const) expect(Object.values(CATALOG).filter((c) => c.line === l)).toHaveLength(5);
+	});
+});
+
+describe('art quality and sport matches', () => {
+	it('higher art level makes better works more likely', async () => {
+		const { artChances } = await import('./model');
+		const lo = artChances(1), hi = artChances(10);
+		expect(hi.masterpiece).toBeGreaterThan(lo.masterpiece);
+		expect(hi.great).toBeGreaterThan(lo.great);
+		expect(hi.normal + hi.great + hi.masterpiece).toBeCloseTo(1);
+	});
+
+	it('a masterpiece pays 2.5× and adds fame; matches win more with level', async () => {
+		const { performanceOutcome, matchWinChance } = await import('./model');
+		const p = newPlayer('p');
+		expect(performanceOutcome(() => 0, p, 'ART', 'street_sketch')).toEqual({ mult: 2.5, fame: 2, label: '걸작' });
+		expect(performanceOutcome(() => 0.99, p, 'ART', 'street_sketch').label).toBeNull();
+		expect(performanceOutcome(() => 0, p, 'SPORT', 'match').label).toBe('승리');
+		expect(performanceOutcome(() => 0.99, p, 'SPORT', 'match').label).toBe('패배');
+		expect(performanceOutcome(() => 0, p, 'SPORT', 'jogging').label).toBeNull(); // 훈련은 경기가 아니다
+		expect(matchWinChance(10)).toBeGreaterThan(matchWinChance(1));
+		expect(matchWinChance(100)).toBe(0.85);
 	});
 });

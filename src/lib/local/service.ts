@@ -11,7 +11,10 @@ import {
 	availableTo,
 	BUSINESS_OPEN_COST,
 	BUSINESS_REVENUE,
+	addFame,
 	BUILDINGS_RULES,
+	FAME_RULES,
+	performanceOutcome,
 	BUSINESS_TAX,
 	hireWorker,
 	rewardMult,
@@ -390,11 +393,14 @@ function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { re
 	const before = p.money;
 	let drop;
 	let rate = 1;
+	let outcome;
 	if ('postingId' in how) {
-		drop = s.board.complete(how.postingId, p).drop;
+		({ drop, outcome } = s.board.complete(how.postingId, p));
 	} else {
 		rate = how.rate;
-		p.money += how.reward;
+		outcome = performanceOutcome(() => rng.next(), p, t.line, t.id); // 작품 품질 (작업대의 예술 임무)
+		p.money += Math.round(how.reward * outcome.mult);
+		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		gainXp(p, t.line, Math.round(MISSION_XP[t.type] * rate));
 		if (t.tier === 'JOB') {
 			const job = p.jobs[t.line]!;
@@ -412,7 +418,7 @@ function settle(s: Session, t: MissionTemplate, ref: string, rng: Rng, how: { re
 	}
 	s.ledger('mission_reward', gained, ref);
 	s.ledger('collection_sale', sold, ref);
-	const item: Json = { name: t.name, reward: gained, rate };
+	const item: Json = { name: t.name, reward: gained, rate, outcome: outcome.label };
 	if (t.tier === 'HOBBY') s.pay('sales_tax', -gained * SALES_TAX, ref);
 	else if (t.tier === 'JOB' && p.jobs[t.line]) {
 		const pay = hourlyPay(p.jobs[t.line]!) * MISSION_HOURS * rate;
@@ -530,6 +536,19 @@ export function collect(s: Session): Json {
 	const capped = s.now - s.d.bizLast >= SETTLE_CAP * SETTLE_INTERVAL;
 	s.d.bizLast = capped ? s.now : s.d.bizLast + pending * SETTLE_INTERVAL;
 	return { settled: pending, net: Math.round(total * 100) / 100, money: Math.round(p.money * 100) / 100 };
+}
+
+/** 수락한 의뢰·돌발 포기: 게시판에 되돌리고 그 계열 명성 −3 */
+export function abandon(s: Session, runId: number): Json {
+	const r = s.d.runs.find((x) => x.id === runId && x.source === 'board');
+	if (!r || !r.postingId) throw new GameError('포기할 수 있는 의뢰가 아닙니다');
+	if (r.endsAt <= s.now) throw new GameError('이미 끝난 임무예요. 보상을 받으세요');
+	s.d.runs = s.d.runs.filter((x) => x.id !== runId);
+	const posting = s.d.town.postings[r.postingId];
+	if (posting) posting.takenBy = null;
+	const t = TEMPLATES[r.template];
+	addFame(s.p, t.line, FAME_RULES.abandon);
+	return { abandoned: runId, line: t.line, fame: s.p.fame[t.line] };
 }
 
 export function hire(s: Session, index: number): Json {

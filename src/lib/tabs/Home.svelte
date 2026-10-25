@@ -22,7 +22,19 @@
 				<h2>{game.boardRun.name}</h2>
 				<p class="quiet">수락한 임무</p>
 			</div>
-			<span class="num">{game.boardRun.ends_at <= game.now ? '완료' : clock(game.boardRun.ends_at - game.now)}</span>
+
+<style>
+	.giveup {
+		color: var(--ink-2);
+		font-size: 13px;
+	}
+</style>
+			{#if game.boardRun.ends_at <= game.now}
+				<span class="num">완료</span>
+			{:else}
+				<span class="num">{clock(game.boardRun.ends_at - game.now)}</span>
+				<button class="giveup" disabled={game.busy} onclick={() => game.abandon(game.boardRun!.id)}>포기 (명성 −3)</button>
+			{/if}
 		</div>
 	{/if}
 

@@ -8,9 +8,10 @@ export const H = 136; // 집 8채를 두 줄로 (위 5채, 길 아래 3채)
 export const FPS = 12;
 
 export interface DrawOp {
-	sprite: SpriteName;
+	sprite: SpriteName | null; // null이면 색 사각형(rect)
 	x: number;
 	y: number;
+	rect?: { w: number; h: number; color: string };
 }
 
 export interface Rect {
@@ -29,6 +30,8 @@ export interface SceneState {
 	townTick: number;
 	/** 계열 건물 확장 단계 (0~2): 단계마다 지붕창이 하나씩 생긴다 */
 	levels?: Partial<Record<Line, number>>;
+	/** 계열 명성: 30점마다 지붕 아래에 금색 점 하나 */
+	fame?: Partial<Record<Line, number>>;
 }
 
 const ROAD_Y = 60;
@@ -50,7 +53,7 @@ export const AREAS: Record<Line, Rect> = {
 };
 
 /** 움직이지 않는 바탕: 풀, 길, 나무, 집(확장 단계별 지붕창), 지붕 장식 */
-export function staticLayer(levels: Partial<Record<Line, number>> = {}): DrawOp[] {
+export function staticLayer(levels: Partial<Record<Line, number>> = {}, fame: Partial<Record<Line, number>> = {}): DrawOp[] {
 	const ops: DrawOp[] = [];
 	for (let r = 0; r * TILE < H; r++)
 		for (let c = 0; c * TILE < W; c++) {
@@ -80,9 +83,14 @@ export function staticLayer(levels: Partial<Record<Line, number>> = {}): DrawOp[
 			{ sprite: `wall.${b.wall}.door` as SpriteName, x: x + TILE, y: y + 2 * TILE },
 			{ sprite: b.icon, x: x + 8, y: y + 10 }
 		);
+		for (let i = 0; i < fameDots(fame[line] ?? 0); i++)
+			ops.push({ sprite: null, x: x + 3 + i * 5, y: y + 2 * TILE - 4, rect: { w: 3, h: 3, color: '#f2c335' } });
 	}
 	return ops;
 }
+
+/** 명성 점 개수: 30·60·90점에 하나씩 */
+export const fameDots = (fame: number) => Math.min(3, Math.floor(fame / 30));
 
 /** 왕복 이동: 0 → span → 0 */
 const pingpong = (v: number, span: number) => {

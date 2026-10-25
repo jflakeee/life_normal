@@ -7,7 +7,7 @@ import { DROP_P, obtain, roll, type Drop } from './collection';
 import B from './data/balance.json';
 import M from './data/missions.json';
 import { LINES, type Line, type MissionType, type Rank, type Tier } from './enums';
-import { addFame, availableTo, completeMission, FAME_RULES, performanceBase, price, type MarketEntry, type Mission, type Player } from './model';
+import { addFame, availableTo, completeMission, FAME_RULES, performanceBase, performanceOutcome, price, type MarketEntry, type Mission, type Outcome, type Player } from './model';
 import { Rng, type RngState } from './rng';
 
 const MB = B.missions;
@@ -212,6 +212,7 @@ export function collectDrop(rng: Rng, p: Player, t: MissionTemplate): Drop | nul
 export interface Completion {
 	reward: number;
 	drop: Drop | null;
+	outcome: Outcome;
 }
 
 /** 마을 상태 위에서 동작하는 게시판. rng는 생성 시 상태에서 복원하고, save()로 되돌려 쓴다. */
@@ -315,7 +316,10 @@ export class Board {
 		const t = TEMPLATES[x.template];
 		const fast = x.deadline !== null && this.world.tick - x.posted <= (x.deadline - x.posted) / 2;
 		if (t.type === 'REQUEST' && fast) x.mission.reward = Math.round(x.mission.reward * (1 + MB.fast_bonus));
+		const outcome = performanceOutcome(() => this.rng.next(), p, t.line, t.id); // 작품 품질, 경기 승패
+		x.mission.reward = Math.round(x.mission.reward * outcome.mult);
 		completeMission(x.mission, p);
+		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		// 명성: 의뢰 완료 +1, 기한 절반 안이면 +1, 연계 이벤트 단계 +3
 		if (t.type === 'REQUEST') addFame(p, t.line, FAME_RULES.request + (fast ? FAME_RULES.fast_bonus : 0));
 		if (x.chain) addFame(p, t.line, FAME_RULES.chain_step);
@@ -326,6 +330,6 @@ export class Board {
 			if (x.chain.step + 1 < chain.steps.length) this.startChain(chain.id, x.chain.step + 1);
 			else this.log(`[${String(this.world.tick).padStart(4)}] ${chain.name} 해결`);
 		}
-		return { reward: x.mission.reward, drop };
+		return { reward: x.mission.reward, drop, outcome };
 	}
 }

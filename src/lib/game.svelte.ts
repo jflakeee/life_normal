@@ -18,6 +18,12 @@ export interface AwayReport {
 
 const AWAY_MIN_SECONDS = 30 * 60;
 
+/** 걸작·경기 승리 같은 눈에 띄는 결과를 "걸작 2점, 승리 1번"으로 */
+function highlights(outcomes: (string | null | undefined)[]): string {
+	const n = (label: string) => outcomes.filter((o) => o === label).length;
+	return [n('걸작') && `걸작 ${n('걸작')}점`, n('승리') && `경기 승리 ${n('승리')}번`].filter(Boolean).join(', ');
+}
+
 export class Game {
 	catalog = $state<Catalog | null>(null);
 	player = $state<PlayerState | null>(null);
@@ -153,13 +159,15 @@ export class Game {
 
 	claim() {
 		return this.run(async () => {
-			const r = await this.api.command<{ claimed: { reward?: number; drop?: { name: string; registered: boolean } }[] }>(
-				'POST',
-				'/claims'
-			);
+			const r = await this.api.command<{
+				claimed: { reward?: number; outcome?: string | null; drop?: { name: string; registered: boolean } }[];
+			}>('POST', '/claims');
 			const total = r.claimed.reduce((s, c) => s + (c.reward ?? 0), 0);
 			const found = r.claimed.find((c) => c.drop?.registered)?.drop?.name;
-			this.say(found ? `${r.claimed.length}건 받음 · 도감에 ${found} 등록` : `${r.claimed.length}건 받음 · +${Math.round(total)} G`);
+			const best = highlights(r.claimed.map((c) => c.outcome));
+			this.say(
+				[`${r.claimed.length}건 받음 · +${Math.round(total)} G`, best, found && `도감에 ${found} 등록`].filter(Boolean).join(' · ')
+			);
 		});
 	}
 
@@ -177,6 +185,10 @@ export class Game {
 
 	openBusiness(line: string) {
 		return this.run(() => this.api.command('POST', '/businesses', { line }), '사업을 열었습니다');
+	}
+
+	abandon(runId: number) {
+		return this.run(() => this.api.command('DELETE', `/runs/${runId}`), '의뢰를 포기했어요 (명성 −3)');
 	}
 
 	hire(index: number) {
@@ -206,7 +218,8 @@ export class Game {
 				.filter(([l, s]) => s.level > lv[l])
 				.map(([l, s]) => `${this.catalog!.lines[l]} Lv ${s.level}`);
 			const drops = r.claimed.flatMap((c) => (c.drop?.registered ? [c.drop.name] : []));
-			if (this.away) this.away.result = { gained: r.money - before.money, levels, drops };
+			const best = highlights((r.claimed as { outcome?: string | null }[]).map((c) => c.outcome));
+			if (this.away) this.away.result = { gained: r.money - before.money, levels: best ? [...levels, best] : levels, drops };
 		} catch (e) {
 			this.say(e instanceof ApiError ? e.message : '받지 못했어요');
 		}

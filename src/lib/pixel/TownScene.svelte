@@ -21,7 +21,8 @@
 			null,
 		eventLines: game.chainPostings.map((p) => p.line as Line),
 		townTick: game.player?.town_tick ?? 0,
-		levels: (game.player?.buildings ?? {}) as SceneState['levels']
+		levels: (game.player?.buildings ?? {}) as SceneState['levels'],
+		fame: (game.player?.fame ?? {}) as SceneState['fame']
 	});
 
 	onMount(() => {
@@ -35,14 +36,19 @@
 
 		const draw = (ops: DrawOp[]) => {
 			for (const op of ops) {
-				const s = SPRITES[op.sprite];
+				if (op.rect) {
+					ctx.fillStyle = op.rect.color;
+					ctx.fillRect(op.x, op.y, op.rect.w, op.rect.h);
+					continue;
+				}
+				const s = SPRITES[op.sprite!];
 				ctx.drawImage(images[s.sheet], s.x, s.y, s.w, s.h, op.x, op.y, s.w, s.h);
 			}
 		};
 		const render = (t: number) => {
 			if (loaded < Object.keys(SHEETS).length) return;
 			ctx.imageSmoothingEnabled = false;
-			draw(staticLayer(scene.levels));
+			draw(staticLayer(scene.levels, scene.fame));
 			draw(dynamicLayer(scene, reduced ? 0 : t));
 			const a = nightAlpha(scene.townTick);
 			if (a) {
@@ -79,6 +85,7 @@
 				void scene.eventLines.length;
 				void scene.townTick;
 				void JSON.stringify(scene.levels);
+				void JSON.stringify(scene.fame);
 				if (reduced) render(0);
 			});
 		});

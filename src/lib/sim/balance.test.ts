@@ -58,13 +58,19 @@ describe('long-run recovery with workers and building upgrades', () => {
 });
 
 describe('new lines earn like the old ones', () => {
-	it('art·music·sport income is within ±10% of the other lines', async () => {
+	// 기존 계열끼리도 위험(부상) 여부에 따라 차이가 크다: 운송·건축·치료 260~274 G, 사냥 206 G, 보안 155 G
+	// 그래서 예술·음악은 기존 계열 범위 안, 위험 계열인 운동은 사냥·보안 평균의 ±15% 안을 목표로 한다
+	it('art·music stay inside the existing range, sport matches the other risky lines', async () => {
 		const { default: B } = await import('$lib/core/data/balance.json');
-		const { PERFORMANCE_LINES } = await import('$lib/core/enums');
 		const I = B.idle;
 		const r = run({ seed: 2, daily: { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
-		const ratio = r.lineIncome(PERFORMANCE_LINES) / r.lineIncome(['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY']);
-		expect(ratio).toBeGreaterThan(0.9);
-		expect(ratio).toBeLessThan(1.1);
+		const old = (['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY'] as const).map((l) => r.lineIncome([l]));
+		for (const l of ['ART', 'MUSIC'] as const) {
+			expect(r.lineIncome([l]), l).toBeGreaterThanOrEqual(Math.min(...old) * 0.95);
+			expect(r.lineIncome([l]), l).toBeLessThanOrEqual(Math.max(...old) * 1.05);
+		}
+		const risky = (r.lineIncome(['HUNTING']) + r.lineIncome(['SECURITY'])) / 2;
+		expect(r.lineIncome(['SPORT']) / risky).toBeGreaterThan(0.85);
+		expect(r.lineIncome(['SPORT']) / risky).toBeLessThan(1.15);
 	}, 60_000);
 });

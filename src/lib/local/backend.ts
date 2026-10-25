@@ -17,6 +17,7 @@ const ROUTES: [method: string, pattern: RegExp, command: boolean, handler: Handl
 	['POST', /^\/workbench\/(\d)\/tap$/, true, (m) => (s) => svc.tapWork(s, Number(m[1]))],
 	['POST', /^\/board\/([\w-]+)\/accept$/, true, (m) => (s) => svc.accept(s, m[1])],
 	['POST', /^\/claims$/, true, () => svc.claim],
+	['DELETE', /^\/runs\/(\d+)$/, true, (m) => (s) => svc.abandon(s, Number(m[1]))],
 	['POST', /^\/jobs\/(\w+)$/, true, (m) => (s) => svc.takeJob(s, m[1])],
 	['POST', /^\/jobs\/(\w+)\/promote$/, true, (m) => (s) => svc.promote(s, m[1])],
 	['POST', /^\/businesses$/, true, (_, b) => (s) => svc.openBusiness(s, String(b.line))],

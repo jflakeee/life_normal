@@ -432,3 +432,24 @@ describe('coming back (away report)', () => {
 		expect(again.away.seconds).toBe(0); // 다시 보면 방금 접속한 것
 	});
 });
+
+describe('abandoning a request', () => {
+	it('gives the posting back and costs 3 fame; finished ones cannot be abandoned', async () => {
+		const { be, advance } = setup();
+		be.game.query((s) => {
+			s.p.jobs.HUNTING = { rank: 'EXPERT', jobMissions: 0, requestsDone: 0 };
+			s.p.fame.HUNTING = 10;
+			s.board.startChain('beast');
+		});
+		type B = { postings: { id: string; chain: string | null; accepted: boolean }[] };
+		const posting = (await be.get<B>('/board')).postings.find((p) => p.chain)!;
+		const { run_id } = await be.command<{ run_id: number }>('POST', `/board/${posting.id}/accept`);
+		await be.command('DELETE', `/runs/${run_id}`);
+		expect(be.game.data.player.fame.HUNTING).toBe(7);
+		const again = (await be.get<B>('/board')).postings.find((p) => p.id === posting.id)!;
+		expect(again.accepted).toBe(false); // 다시 수락할 수 있다
+		const r2 = await be.command<{ run_id: number }>('POST', `/board/${posting.id}/accept`);
+		advance(TICK_SECONDS);
+		await expect(be.command('DELETE', `/runs/${r2.run_id}`)).rejects.toMatchObject({ status: 409 });
+	});
+});

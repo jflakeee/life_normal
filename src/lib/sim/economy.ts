@@ -8,6 +8,7 @@ import {
 	BUSINESS_OPEN_COST,
 	hireWorker,
 	performanceBase,
+	performanceOutcome,
 	rewardMult,
 	settlementRevenue,
 	upgradeBuilding,
@@ -139,10 +140,13 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	let job = p.jobs[line];
 	const mtype: MissionType = forced ?? (rng.next() < REQUEST_PROB ? 'REQUEST' : 'ROUTINE');
 	let tier: Tier;
+	// 예술 작품 품질, 운동 경기 승패 (경기는 의뢰일 때)
+	const outcome = performanceOutcome(() => rng.next(), p, line, mtype === 'REQUEST' ? 'match' : 'routine');
+	if (outcome.fame) addFame(p, line, outcome.fame);
 
 	// 1) 활동 수입 + 경험치
 	if (!job) {
-		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line) * performanceBase(line);
+		let gross = HOBBY_REWARD * rng.uniform(0.7, 1.3) * rate * rewardMult(p, line) * performanceBase(line) * outcome.mult;
 		const items = YIELD_ITEMS[line];
 		if (board && items) gross *= items.reduce((s, i) => s + priceRatio(board.world, i), 0) / items.length;
 		const tax = gross * SALES_TAX;
@@ -159,7 +163,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			const gearOk = t.gear === 0 || p.equipment.some((e) => e.price >= t.gear);
 			if (rankOk && gearOk) bonus = Math.max(bonus, processReward(world, t.process!));
 		}
-		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line)) * rate;
+		const pay = (hourlyPay(job) * MISSION_HOURS + bonus * rewardMult(p, line) * performanceBase(line) * outcome.mult) * rate;
 		p.money += pay;
 		led.earn('직업 급여', pay);
 		job.jobMissions++;

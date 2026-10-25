@@ -211,10 +211,46 @@ export function upgradeBuilding(p: Player, line: Line): number {
 }
 
 /** 예술·음악·운동: 기본 보상 배율과 명성 배율 (1 + 명성/100, 최대 ×2) */
-export const PERFORMANCE = { ...B.performance };
-export const performanceBase = (line: Line) => (PERFORMANCE_LINES.includes(line) ? PERFORMANCE.base_factor : 1);
+export const PERFORMANCE = { ...B.performance, base_factor: { ...B.performance.base_factor } };
+export const performanceBase = (line: Line) =>
+	(PERFORMANCE.base_factor as Partial<Record<Line, number>>)[line] ?? 1; // 계열마다 따로 맞춘 기본 배율
 export const fameMult = (p: Player, line: Line) =>
 	PERFORMANCE_LINES.includes(line) ? Math.min(PERFORMANCE.max_mult, 1 + PERFORMANCE.per_fame * (p.fame[line] ?? 0)) : 1;
+
+/** 예술 작품 품질·운동 경기 승패: 완료할 때 한 번 정해지고 보상 배율과 명성 보너스를 준다 */
+export interface Outcome {
+	mult: number;
+	fame: number;
+	label: string | null; // '걸작', '좋은 작품', '승리', '패배' (보통 작품은 null)
+}
+const AQ = B.art_quality;
+const SM = B.sport_match;
+
+/** 예술 레벨별 작품 품질 확률 */
+export function artChances(level: number) {
+	const masterpiece = AQ.masterpiece_base + AQ.masterpiece_per_lv * level;
+	const great = AQ.great_base + AQ.great_per_lv * level;
+	return { masterpiece, great, normal: 1 - masterpiece - great };
+}
+
+export const matchWinChance = (level: number) => Math.min(SM.win_max, SM.win_base + SM.win_per_lv * level);
+
+/** rng: () => [0,1) */
+export function performanceOutcome(next: () => number, p: Player, line: Line, templateId: string): Outcome {
+	if (line === 'ART') {
+		const c = artChances(p.skills.ART.level);
+		const r = next();
+		if (r < c.masterpiece) return { mult: AQ.mult.MASTERPIECE, fame: AQ.masterpiece_fame, label: '걸작' };
+		if (r < c.masterpiece + c.great) return { mult: AQ.mult.GREAT, fame: 0, label: '좋은 작품' };
+		return { mult: AQ.mult.NORMAL, fame: 0, label: null };
+	}
+	if (line === 'SPORT' && SM.templates.includes(templateId)) {
+		return next() < matchWinChance(p.skills.SPORT.level)
+			? { mult: SM.win_mult, fame: SM.win_fame, label: '승리' }
+			: { mult: SM.lose_mult, fame: 0, label: '패배' };
+	}
+	return { mult: 1, fame: 0, label: null };
+}
 
 /** 건물 레벨에 따른 그 계열 임무 보상 배율 */
 export const rewardMult = (p: Player, line: Line) =>

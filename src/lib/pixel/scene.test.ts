@@ -32,7 +32,7 @@ describe('pixel scene', () => {
 	});
 
 	it('the static layer only uses known sprites', () => {
-		for (const op of staticLayer()) expect(SPRITES[op.sprite], op.sprite).toBeDefined();
+		for (const op of staticLayer()) if (op.sprite) expect(SPRITES[op.sprite], op.sprite).toBeDefined();
 	});
 
 	it('puts the player in front of the active building', () => {
@@ -64,7 +64,14 @@ describe('pixel scene', () => {
 describe('building upgrades in town', () => {
 	it('adds one dormer per upgrade level', () => {
 		const dormers = (lv: number) =>
-			staticLayer({ HUNTING: lv }).filter((o) => o.sprite.endsWith('.dormer') && o.y === AREAS.HUNTING.y && o.x >= AREAS.HUNTING.x && o.x < AREAS.HUNTING.x + AREAS.HUNTING.w);
+			staticLayer({ HUNTING: lv }).filter((o) => o.sprite?.endsWith('.dormer') && o.y === AREAS.HUNTING.y && o.x >= AREAS.HUNTING.x && o.x < AREAS.HUNTING.x + AREAS.HUNTING.w);
 		expect([0, 1, 2].map((lv) => dormers(lv).length)).toEqual([0, 1, 2]);
+	});
+});
+
+describe('fame in town', () => {
+	it('shows one gold dot per 30 fame, at most 3', () => {
+		const dots = (f: number) => staticLayer({}, { ART: f }).filter((o) => o.rect && o.x >= AREAS.ART.x && o.x < AREAS.ART.x + AREAS.ART.w && o.y > AREAS.ART.y).length;
+		expect([0, 29, 30, 65, 100].map(dots)).toEqual([0, 0, 1, 2, 3]);
 	});
 });
