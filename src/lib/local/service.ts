@@ -65,7 +65,19 @@ import {
 	isActionTask,
 	recordHabit
 } from '$lib/core/actions';
-import { entryJob, jobRewardMult, JOBS, jobsOf, TRANSFER, transferMissing } from '$lib/core/jobs';
+import { entryJob, entryJobs, jobRewardMult, JOBS, jobsOf, TRANSFER, transferMissing } from '$lib/core/jobs';
+import {
+	addResearch,
+	hasTech,
+	researchPoints,
+	TECH_BY_ID,
+	TECHS,
+	techInjuryMult,
+	techMissing,
+	techRewardMult,
+	techTapMax,
+	unlockTech
+} from '$lib/core/research';
 
 type Json = Record<string, unknown>;
 
@@ -259,8 +271,15 @@ export function state(s: Session): Json {
 			})
 		),
 		job_entry: Object.fromEntries(
-			LINES.filter((l) => l !== 'COLLECTING' && !p.jobs[l]).map((l) => [l, { job: entryJob(l)?.name ?? null, missing: takeJobMissing(p, l) }])
+			LINES.filter((l) => l !== 'COLLECTING' && !p.jobs[l]).map((l) => [
+				l,
+				entryJobs(l).map((j) => ({ job: j.id, name: j.name, missing: takeJobMissing(p, l, j.id) }))
+			])
 		),
+		research: {
+			points: researchPoints(p),
+			techs: TECHS.map((t) => ({ ...t, unlocked: hasTech(p, t.id), missing: techMissing(p, t.id) }))
+		},
 		skills: p.skills,
 		jobs: Object.fromEntries(
 			Object.entries(p.jobs).map(([l, j]) => [
@@ -394,7 +413,7 @@ export function workbenchState(s: Session): Json {
 			action: x.template ? isActionTask(x.template) : false,
 			pending: x.pending.length,
 			next_in: x.template ? TICK_SECONDS - x.progress : null,
-			tap_left: x.template ? wb.TAP_MAX_PER_RUN - x.tapUsed : 0
+			tap_left: x.template ? techTapMax(s.p, wb.TAP_MAX_PER_RUN) - x.tapUsed : 0
 		})),
 		used_today: wb.usedToday(w, s.now, s.tz),
 		limit: wb.DAILY_LIMIT,
@@ -437,10 +456,10 @@ export function stopWork(s: Session, index: number): Json {
 
 export function tapWork(s: Session, index: number): Json {
 	const slot = slotAt(s, index);
-	const r = wb.tap(slot, s.d.workbench, s.now, TICK_SECONDS, s.tz);
+	const r = wb.tap(slot, s.d.workbench, s.now, TICK_SECONDS, s.tz, techTapMax(s.p, wb.TAP_MAX_PER_RUN));
 	if (r === 'empty') throw new GameError('비어 있는 작업대입니다');
 	if (r === 'limit') throw new GameError('이번 작업은 더 당길 수 없어요');
-	return { slot: index, next_in: TICK_SECONDS - slot.progress, tap_left: wb.TAP_MAX_PER_RUN - slot.tapUsed };
+	return { slot: index, next_in: TICK_SECONDS - slot.progress, tap_left: techTapMax(s.p, wb.TAP_MAX_PER_RUN) - slot.tapUsed };
 }
 
 function banCheck(s: Session, t: MissionTemplate): void {
@@ -479,7 +498,8 @@ function settle(
 	} else {
 		rate = how.rate;
 		outcome = performanceOutcome(() => rng.next(), p, t.line, t.id); // 작품 품질 (작업대의 예술 임무)
-		p.money += Math.round(how.reward * outcome.mult * jobRewardMult(p, t.line, t.id));
+		p.money += Math.round(how.reward * outcome.mult * jobRewardMult(p, t.line, t.id) * techRewardMult(p, t));
+		if (t.research) addResearch(p, t.research * rate);
 		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		gainXp(p, t.line, Math.round(MISSION_XP[t.type] * rate));
 		if (t.tier === 'JOB') {
@@ -593,7 +613,7 @@ function risk(s: Session, rng: Rng, l: Line, hobby: boolean, ref: string): Json 
 		s.track('death', ref, () => onDeath(s.p));
 		return { incident: 'death' };
 	}
-	if (rng.next() < INJURY_P) {
+	if (rng.next() < INJURY_P * techInjuryMult(s.p)) {
 		const fee = rng.int(50, 300) * (hobby ? HOBBY_MEDICAL_DISCOUNT : 1);
 		s.pay('medical', -fee, ref);
 		return { incident: 'injury', medical_fee: fee };
@@ -602,10 +622,16 @@ function risk(s: Session, rng: Rng, l: Line, hobby: boolean, ref: string): Json 
 }
 
 // ── 성장 ─────────────────────────────────────────────
-export function takeJob(s: Session, lineName: string): Json {
+export function takeJob(s: Session, lineName: string, jobId?: string): Json {
 	const l = line(lineName);
-	rule(() => coreTakeJob(s.p, l));
-	return { job: l, rank: s.p.jobs[l]!.rank };
+	rule(() => coreTakeJob(s.p, l, jobId || undefined));
+	return { job: l, rank: s.p.jobs[l]!.rank, name: JOBS[s.p.jobs[l]!.job]?.name };
+}
+
+/** 기술 해금 (연구 점수 + 연구비) */
+export function research(s: Session, techId: string): Json {
+	rule(() => s.track('research', techId, () => unlockTech(s.p, techId)));
+	return { tech: techId, name: TECH_BY_ID[techId].name, points: researchPoints(s.p) };
 }
 
 export function promote(s: Session, lineName: string): Json {

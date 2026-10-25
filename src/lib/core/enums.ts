@@ -1,4 +1,4 @@
-export const LINES = ['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY', 'ART', 'MUSIC', 'SPORT', 'AGRICULTURE', 'MINING', 'SEA', 'COLLECTING'] as const;
+export const LINES = ['TRANSPORT', 'HUNTING', 'CONSTRUCTION', 'MEDICAL', 'SECURITY', 'ART', 'MUSIC', 'SPORT', 'AGRICULTURE', 'MINING', 'SEA', 'KNOWLEDGE', 'COLLECTING'] as const;
 export type Line = (typeof LINES)[number];
 export const LINE_NAME: Record<Line, string> = {
 	TRANSPORT: '운송',
@@ -12,6 +12,7 @@ export const LINE_NAME: Record<Line, string> = {
 	AGRICULTURE: '농업',
 	MINING: '광업',
 	SEA: '해양',
+	KNOWLEDGE: '지식',
 	COLLECTING: '수집'
 };
 

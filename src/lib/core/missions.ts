@@ -5,6 +5,7 @@
  *  - 수집 임무 완료 시 도감 드롭 */
 import { DROP_P, obtain, roll, type Drop } from './collection';
 import { jobRewardMult } from './jobs';
+import { addResearch, techDropMult, techRewardMult } from './research';
 import B from './data/balance.json';
 import M from './data/missions.json';
 import { LINES, type Line, type MissionType, type Rank, type Tier } from './enums';
@@ -33,6 +34,7 @@ export interface MissionTemplate {
 	process: Process | null; // 가공: 원자재를 사서 가공품으로 판다
 	jobs: string[] | null; // 이 직종만 할 수 있음 (예: 철괴 제련은 대장장이)
 	outlaw: boolean; // 무법 임무 (해적): 보상 ×1.6, 악명, 명성 없음
+	research: number; // 완료하면 얻는 연구 점수 (과학자)
 }
 
 /** 가공: 원자재(input)를 사서 가공품(output)으로 판다. fuel이 있으면 연료값도 든다 */
@@ -50,6 +52,7 @@ type RawTemplate = { id: string; name: string; line: string; tier: string; type:
 	process: Process;
 	jobs: string[];
 	outlaw: boolean;
+	research: number;
 }>;
 
 export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
@@ -67,7 +70,8 @@ export const TEMPLATES: Record<string, MissionTemplate> = Object.fromEntries(
 			eventOnly: t.event_only ?? false,
 			process: t.process ?? null,
 			jobs: t.jobs ?? null,
-			outlaw: t.outlaw ?? false
+			outlaw: t.outlaw ?? false,
+			research: t.research ?? 0
 		}
 	])
 );
@@ -140,7 +144,7 @@ export interface World {
 	totalBusinesses: number;
 	players: number;
 	tick: number;
-	active: { effect: Effect; until: number }[];
+	active: { effect: Effect; until: number; source?: string }[]; // source: 그 효과를 건 연계 이벤트 (보도가 연장)
 	bizBonus: Partial<Record<Line, number>>;
 }
 export interface Posting {
@@ -150,6 +154,7 @@ export interface Posting {
 	deadline: number | null;
 	chain: { id: string; step: number } | null;
 	takenBy: string | null; // 수락한 플레이어 (타이머 진행 중에는 만료·중복 수락 없음)
+	covers?: string; // 사건 취재: 이 연계 이벤트를 보도한다
 }
 export interface TownState {
 	world: World;
@@ -188,7 +193,7 @@ export function processReward(w: World, p: Process): number {
 	return Math.max(0, Math.round(margin * MB.process_share));
 }
 
-export function applyEffect(w: World, eff: Effect): void {
+export function applyEffect(w: World, eff: Effect, source?: string): void {
 	if (eff.kind === 'BIZ_BONUS') {
 		const line = eff.target as Line;
 		w.bizBonus[line] = (w.bizBonus[line] ?? 0) + eff.value;
@@ -201,7 +206,7 @@ export function applyEffect(w: World, eff: Effect): void {
 		return;
 	}
 	if (eff.kind === 'DEMAND') w.market[eff.target].demand *= eff.value;
-	w.active.push({ effect: eff, until });
+	w.active.push({ effect: eff, until, source });
 }
 
 export function expireEffects(w: World): void {
@@ -219,7 +224,7 @@ export function spawnMult(w: World, line: Line): number {
 }
 
 export function collectDrop(rng: Rng, p: Player, t: MissionTemplate): Drop | null {
-	if (t.line !== 'COLLECTING' || rng.next() >= (DROP_P[t.type] ?? 0)) return null;
+	if (t.line !== 'COLLECTING' || rng.next() >= (DROP_P[t.type] ?? 0) * techDropMult(p)) return null;
 	return obtain(p, roll(rng, p.skills.COLLECTING.level, t.type === 'REQUEST'));
 }
 
@@ -282,11 +287,15 @@ export class Board {
 	startChain(chainId: string, step = 0): void {
 		const chain = CHAIN_BY_ID[chainId];
 		const s = chain.steps[step];
-		for (const e of s.onStart) applyEffect(this.world, e);
+		for (const e of s.onStart) applyEffect(this.world, e, chainId);
 		const t = TEMPLATES[s.template];
 		const limit = t.type === 'EMERGENCY' ? EMERGENCY_DEADLINE : REQUEST_DEADLINE;
 		this.post(t, this.world.tick + limit, { id: chainId, step });
 		this.log(`[${String(this.world.tick).padStart(4)}] ${chain.name} ${step + 1}단계: ${t.name}`);
+		if (step === 0 && TEMPLATES.news_coverage) {
+			const cov = this.post(TEMPLATES.news_coverage, this.world.tick + REQUEST_DEADLINE);
+			cov.covers = chainId;
+		}
 	}
 
 	update(): void {
@@ -310,6 +319,13 @@ export class Board {
 		for (const c of CHAINS) if (this.rng.next() < chainChance(c, w)) this.startChain(c.id);
 	}
 
+	/** 보도: 그 사건이 건 효과를 1게임일 더 (기자 명성 50·90에서 2·3게임일) */
+	extendCoverage(chainId: string, fame: number): void {
+		const C = B.coverage;
+		const days = 1 + C.fame_steps.filter((f) => fame >= f).length;
+		for (const a of this.world.active) if (a.source === chainId) a.until += C.extend_ticks * days;
+	}
+
 	available(p: Player): Posting[] {
 		return Object.values(this.town.postings).filter((x) => !x.takenBy && availableTo(x.mission, p));
 	}
@@ -331,9 +347,11 @@ export class Board {
 		const fast = x.deadline !== null && this.world.tick - x.posted <= (x.deadline - x.posted) / 2;
 		if (t.type === 'REQUEST' && fast) x.mission.reward = Math.round(x.mission.reward * (1 + MB.fast_bonus));
 		const outcome = performanceOutcome(() => this.rng.next(), p, t.line, t.id); // 작품 품질, 경기 승패
-		x.mission.reward = Math.round(x.mission.reward * outcome.mult * jobRewardMult(p, t.line, t.id));
+		x.mission.reward = Math.round(x.mission.reward * outcome.mult * jobRewardMult(p, t.line, t.id) * techRewardMult(p, t));
 		completeMission(x.mission, p);
 		if (t.process && p.jobs[t.line]) p.jobs[t.line]!.processDone++;
+		if (t.research) addResearch(p, t.research);
+		if (x.covers) this.extendCoverage(x.covers, p.fame[t.line] ?? 0);
 		if (outcome.fame) addFame(p, t.line, outcome.fame);
 		// 명성: 의뢰 완료 +1, 기한 절반 안이면 +1, 연계 이벤트 단계 +3
 		if (t.type === 'REQUEST' && !t.outlaw) addFame(p, t.line, FAME_RULES.request + (fast ? FAME_RULES.fast_bonus : 0)); // 무법 의뢰는 명성 대신 악명
@@ -341,7 +359,7 @@ export class Board {
 		const drop = collectDrop(this.rng, p, t);
 		if (x.chain) {
 			const chain = CHAIN_BY_ID[x.chain.id];
-			for (const e of chain.steps[x.chain.step].onDone) applyEffect(this.world, e);
+			for (const e of chain.steps[x.chain.step].onDone) applyEffect(this.world, e, chain.id);
 			if (x.chain.step + 1 < chain.steps.length) this.startChain(chain.id, x.chain.step + 1);
 			else this.log(`[${String(this.world.tick).padStart(4)}] ${chain.name} 해결`);
 		}

@@ -174,8 +174,13 @@ export class Game {
 		});
 	}
 
-	takeJob(line: string) {
-		return this.run(() => this.api.command('POST', `/jobs/${line}`), '직업을 시작했습니다');
+	takeJob(line: string, job?: string) {
+		const name = this.catalog?.jobs.find((j) => j.id === job)?.name ?? this.catalog?.lines[line] ?? line;
+		return this.run(() => this.api.command('POST', `/jobs/${line}`, job ? { job } : undefined), `${name} 일을 시작했어요`);
+	}
+
+	research(tech: string, name: string) {
+		return this.run(() => this.api.command('POST', `/research/${tech}`), `${name} 해금`);
 	}
 
 	promote(line: string) {

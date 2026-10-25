@@ -132,3 +132,15 @@ describe('treasure hunter and pirate (해양 갈림길)', () => {
 		expect(arrests).toBeLessThan(15);
 	}, 180_000);
 });
+
+describe('knowledge (지식)', () => {
+	it('sits in the safe range; scientists spend on research', async () => {
+		const { default: B } = await import('$lib/core/data/balance.json');
+		const I = B.idle;
+		const r = run({ seed: 1, daily: { days: 60, limit: I.daily_limit, full: I.daily_full, overRate: I.over_rate, settlementsPerDay: 10, requestsPerDay: 3 } });
+		const safe = (['TRANSPORT', 'CONSTRUCTION', 'MEDICAL', 'ART', 'MUSIC', 'AGRICULTURE'] as const).map((l) => r.lineIncome([l]));
+		expect(r.lineIncome(['KNOWLEDGE'])).toBeGreaterThanOrEqual(Math.min(...safe) * 0.95);
+		expect(r.lineIncome(['KNOWLEDGE'])).toBeLessThanOrEqual(Math.max(...safe) * 1.05);
+		expect(r.ledger.sink['연구비']).toBeGreaterThan(0);
+	}, 120_000);
+});

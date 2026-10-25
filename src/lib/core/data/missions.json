@@ -710,6 +710,87 @@
     "pirate"
    ],
    "outlaw": true
+  },
+  {
+   "id": "reading_club",
+   "name": "독서 모임",
+   "line": "KNOWLEDGE",
+   "tier": "HOBBY",
+   "type": "ROUTINE"
+  },
+  {
+   "id": "stargazing",
+   "name": "별 관찰",
+   "line": "KNOWLEDGE",
+   "tier": "HOBBY",
+   "type": "REQUEST"
+  },
+  {
+   "id": "experiment",
+   "name": "실험",
+   "line": "KNOWLEDGE",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "jobs": [
+    "scientist"
+   ],
+   "research": 1
+  },
+  {
+   "id": "field_study",
+   "name": "현장 조사",
+   "line": "KNOWLEDGE",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "jobs": [
+    "scientist"
+   ],
+   "research": 3
+  },
+  {
+   "id": "local_news",
+   "name": "동네 소식 취재",
+   "line": "KNOWLEDGE",
+   "tier": "JOB",
+   "type": "ROUTINE",
+   "jobs": [
+    "reporter"
+   ]
+  },
+  {
+   "id": "interview",
+   "name": "인터뷰",
+   "line": "KNOWLEDGE",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "jobs": [
+    "reporter"
+   ]
+  },
+  {
+   "id": "news_coverage",
+   "name": "사건 취재",
+   "line": "KNOWLEDGE",
+   "tier": "JOB",
+   "type": "REQUEST",
+   "jobs": [
+    "reporter"
+   ],
+   "event_only": true
+  },
+  {
+   "id": "lab_contract",
+   "name": "연구 용역",
+   "line": "KNOWLEDGE",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
+  },
+  {
+   "id": "newspaper",
+   "name": "신문 발행",
+   "line": "KNOWLEDGE",
+   "tier": "BUSINESS",
+   "type": "REQUEST"
   }
  ],
  "chain": [

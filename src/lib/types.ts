@@ -17,6 +17,7 @@ export interface Catalog {
 	shop: Record<string, number>;
 	repair_rate: number;
 	slots_max: number;
+	jobs: { id: string; name: string; line: string; entry: boolean; pay_mult: number }[];
 	actions: { id: string; task: string; name: string; example: string; spread: [string, number][] }[];
 	daily_limit: number;
 	mission_seconds: number;
@@ -41,7 +42,8 @@ export interface PlayerState {
 	fame: Record<string, number>;
 	notoriety: { value: number; wanted: boolean; ban_until: number | null };
 	actions: Record<string, { name: string; level: number; xp: number; next: number; streak: number; today: number; bonus: number }>;
-	job_entry: Record<string, { job: string | null; missing: string[] }>;
+	job_entry: Record<string, { job: string; name: string; missing: string[] }[]>;
+	research: { points: number; techs: { id: string; name: string; points: number; cost: number; effect: string; unlocked: boolean; missing: string[] }[] };
 	skills: Record<string, { level: number; xp: number }>;
 	jobs: Record<
 		string,

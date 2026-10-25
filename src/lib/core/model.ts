@@ -1,6 +1,7 @@
 /** 데이터 모델과 규칙. 수치는 data/balance.json. 상태는 순수 데이터라 그대로 저장할 수 있다. */
 import { actionMissing, type ActionState, type HabitState } from './actions';
 import type { Notoriety } from './outlaw';
+import type { ResearchState } from './research';
 import { xpMult } from './collection';
 import { entryJob, jobPayMult, JOBS, rankAfterTransfer, transferFee, transferMissing } from './jobs';
 import B from './data/balance.json';
@@ -103,6 +104,7 @@ export interface Player {
 	actions?: Record<string, ActionState>; // 일상 행동 숙련
 	habits?: Record<string, HabitState>; // 습관 (연속 일수)
 	notoriety?: Notoriety; // 악명 (해적)
+	research?: ResearchState; // 연구 점수와 해금한 기술 (과학자)
 }
 
 export function newPlayer(id: string, money = 0): Player {
@@ -146,20 +148,22 @@ export function addXp(s: SkillState, amount: number): number {
 export const gainXp = (p: Player, line: Line, base: number) =>
 	addXp(p.skills[line], Math.round(base * xpMult(p.collection, line)));
 
-/** 직업을 갖는 데 부족한 조건: 취미 Lv 5와 진입 직종의 행동 조건 */
-export function takeJobMissing(p: Player, line: Line): string[] {
+/** 직업을 갖는 데 부족한 조건: 취미 Lv 5와 진입 직종의 행동 조건 (지식처럼 진입 직종이 여럿이면 고른 직종) */
+export function takeJobMissing(p: Player, line: Line, jobId?: string): string[] {
 	if (line === 'COLLECTING') return ['직업이 없는 계열'];
+	const job = jobId ? JOBS[jobId] : entryJob(line);
+	if (!job || job.line !== line || !job.entry) return ['처음 고를 수 있는 직종이 아님'];
 	const out: string[] = [];
 	if (p.skills[line].level < JOB_UNLOCK_LEVEL) out.push(`취미 Lv ${p.skills[line].level}/${JOB_UNLOCK_LEVEL}`);
-	return out.concat(actionMissing(p, entryJob(line)?.actions));
+	return out.concat(actionMissing(p, job.actions));
 }
 
 export const canTakeJob = (p: Player, line: Line) => takeJobMissing(p, line).length === 0;
 
-export function takeJob(p: Player, line: Line): void {
-	const missing = takeJobMissing(p, line);
+export function takeJob(p: Player, line: Line, jobId?: string): void {
+	const missing = takeJobMissing(p, line, jobId);
 	if (missing.length) throw new RuleError('직업 조건 부족: ' + missing.join(', '));
-	p.jobs[line] ??= { job: entryJob(line)?.id ?? line.toLowerCase(), rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0, processDone: 0 };
+	p.jobs[line] ??= { job: jobId ?? entryJob(line)?.id ?? line.toLowerCase(), rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0, processDone: 0 };
 }
 
 /** 승급에 부족한 조건 목록 (비어 있으면 승급 가능) */

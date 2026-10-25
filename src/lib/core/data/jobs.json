@@ -272,6 +272,29 @@
     "explore": 4,
     "exercise": 3
    }
+  },
+  {
+   "id": "scientist",
+   "name": "과학자",
+   "line": "KNOWLEDGE",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "observe": 3,
+    "record": 3
+   }
+  },
+  {
+   "id": "reporter",
+   "name": "기자",
+   "line": "KNOWLEDGE",
+   "entry": true,
+   "pay_mult": 1.0,
+   "actions": {
+    "observe": 3,
+    "talk": 3,
+    "record": 2
+   }
   }
  ],
  "transfer": {

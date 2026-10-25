@@ -14,8 +14,8 @@ import {
 import { availableTo, newPlayer } from './model';
 
 describe('missions', () => {
-	it('has 87 templates (가공 4개, 새 계열 26개, 생산 계열 20개, 보물·해적 4개 포함)', () => {
-		expect(Object.keys(TEMPLATES)).toHaveLength(87);
+	it('has 96 templates (가공 4개, 새 계열 26개, 생산 계열 20개, 보물·해적 4개, 지식 9개 포함)', () => {
+		expect(Object.keys(TEMPLATES)).toHaveLength(96);
 	});
 
 	it('every job has an entry-level routine mission', () => {
@@ -188,9 +188,9 @@ describe('performance lines (art, music, sport)', () => {
 		expect(rewardMult(p, 'TRANSPORT')).toBe(1); // 기존 계열은 명성과 무관
 	});
 
-	it('has 11 lines with buildings and 55 collectibles', async () => {
+	it('has 12 lines with buildings and 60 collectibles', async () => {
 		const { CATALOG } = await import('./collection');
-		expect(Object.keys(CATALOG)).toHaveLength(55);
+		expect(Object.keys(CATALOG)).toHaveLength(60);
 		for (const l of ['ART', 'MUSIC', 'SPORT'] as const) expect(Object.values(CATALOG).filter((c) => c.line === l)).toHaveLength(5);
 	});
 });
@@ -238,5 +238,30 @@ describe('production lines', () => {
 			const ok = Object.values(TEMPLATES).some((t) => t.line === line && t.tier === 'JOB' && t.type === 'ROUTINE' && !t.minRank && !t.jobs);
 			expect(ok, line).toBe(true);
 		}
+	});
+});
+
+describe('reporting (기자 보도)', () => {
+	it('a chain posts a coverage request; covering it extends that chain’s effects by a game day (more with fame)', () => {
+		const board = new Board(newTown(0));
+		board.startChain('storm');
+		const cov = Object.values(board.town.postings).find((x) => x.covers === 'storm')!;
+		expect(cov).toBeDefined();
+		const before = board.world.active.filter((a) => a.source === 'storm').map((a) => a.until);
+		const reporter = newPlayer('r');
+		reporter.jobs.KNOWLEDGE = { job: 'reporter', rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0, processDone: 0 };
+		reporter.fame.KNOWLEDGE = 60; // 명성 50 이상: 2게임일
+		board.complete(cov.mission.id, reporter);
+		const after = board.world.active.filter((a) => a.source === 'storm').map((a) => a.until);
+		expect(after.map((u, i) => u - before[i])).toEqual(before.map(() => 16));
+	});
+
+	it('coverage is for reporters only', () => {
+		const board = new Board(newTown(0));
+		board.startChain('storm');
+		const cov = Object.values(board.town.postings).find((x) => x.covers === 'storm')!;
+		const nurse = newPlayer('n');
+		nurse.jobs.KNOWLEDGE = { job: 'scientist', rank: 'APPRENTICE', jobMissions: 0, requestsDone: 0, processDone: 0 };
+		expect(availableTo(cov.mission, nurse)).toBe(false);
 	});
 });

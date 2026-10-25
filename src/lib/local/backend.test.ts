@@ -505,8 +505,9 @@ describe('daily actions on the workbench', () => {
 		be.game.query((s) => {
 			s.p.skills.MEDICAL.level = 5;
 		});
-		const st = await be.get<{ job_entry: Record<string, { job: string; missing: string[] }> }>('/state');
-		expect(st.job_entry.MEDICAL).toEqual({ job: '간호사', missing: ['돌보기 1/2'] });
+		const st = await be.get<{ job_entry: Record<string, { job: string; name: string; missing: string[] }[]> }>('/state');
+		expect(st.job_entry.MEDICAL).toEqual([{ job: 'nurse', name: '간호사', missing: ['돌보기 1/2'] }]);
+		expect(st.job_entry.KNOWLEDGE.map((o) => o.name)).toEqual(['과학자', '기자']); // 진입 직종이 둘
 		await expect(be.command('POST', '/jobs/MEDICAL')).rejects.toMatchObject({ status: 409 });
 	});
 
@@ -553,6 +554,43 @@ describe('pirate on the workbench', () => {
 		const c = await be.command<{ claimed: { confiscated?: boolean }[] }>('POST', '/claims');
 		expect(c.claimed.some((x) => x.confiscated)).toBe(true); // 금지 중에 끝난 습격
 		await expect(be.command('POST', '/workbench/1', { template_id: 'merchant_raid' })).rejects.toMatchObject({ status: 409 });
+		expect(audit(be.game.data)).toBe(0);
+	});
+});
+
+describe('knowledge (과학자·기자)', () => {
+	const ready = (be: ReturnType<typeof setup>['be']) =>
+		be.game.query((s) => {
+			s.p.skills.KNOWLEDGE.level = 5;
+			s.p.actions = { observe: { level: 3, xp: 0 }, record: { level: 3, xp: 0 }, talk: { level: 3, xp: 0 } };
+		});
+
+	it('picks one of the two entry jobs', async () => {
+		const { be } = setup();
+		ready(be);
+		await be.command('POST', '/jobs/KNOWLEDGE', { job: 'reporter' });
+		expect(be.game.data.player.jobs.KNOWLEDGE!.job).toBe('reporter');
+	});
+
+	it('experiments earn research points; a tech costs points and money and takes effect', async () => {
+		const { be, advance } = setup();
+		ready(be);
+		await be.command('POST', '/jobs/KNOWLEDGE', { job: 'scientist' });
+		be.game.query((s) => s.pay('grant', 5_000, 'test'));
+		await be.command('POST', '/workbench/1', { template_id: 'experiment' });
+		advance(5 * TICK_SECONDS);
+		await be.command('POST', '/claims');
+		type R = { research: { points: number; techs: { id: string; missing: string[] }[] }; workbench: { slots: { tap_left: number }[] } };
+		expect((await be.get<R>('/state')).research.points).toBe(5);
+		await expect(be.command('POST', '/research/efficient_bench')).rejects.toMatchObject({ status: 409 });
+		be.game.query((s) => {
+			s.p.research!.points = 500;
+		});
+		await be.command('POST', '/research/efficient_bench');
+		const st = await be.get<R>('/state');
+		expect(st.research.points).toBe(0);
+		expect(st.workbench.slots[1].tap_left).toBe(40); // 탭 가속 30초 → 40초
+		expect(be.game.data.ledger.totals.research).toBe(-2_500);
 		expect(audit(be.game.data)).toBe(0);
 	});
 });

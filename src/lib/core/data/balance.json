@@ -207,5 +207,51 @@
   "ban_hours": 24,
   "fine_cap": 1500,
   "arrest_daily_per_point": 0.0025
+ },
+ "research": {
+  "techs": [
+   {
+    "id": "precision_tools",
+    "name": "정밀 도구",
+    "points": 200,
+    "cost": 1000,
+    "effect": "가공 이윤 +5%"
+   },
+   {
+    "id": "fertilizer",
+    "name": "비료 개량",
+    "points": 300,
+    "cost": 1500,
+    "effect": "농업 수확 보상 +5%"
+   },
+   {
+    "id": "field_guide",
+    "name": "현장 도감",
+    "points": 300,
+    "cost": 1500,
+    "effect": "도감 발견 확률 +10%"
+   },
+   {
+    "id": "efficient_bench",
+    "name": "효율 작업대",
+    "points": 500,
+    "cost": 2500,
+    "effect": "탭 가속 건당 최대 30초 → 40초"
+   },
+   {
+    "id": "safety_gear",
+    "name": "안전 장비",
+    "points": 500,
+    "cost": 2500,
+    "effect": "위험 계열 부상 확률 −20%"
+   }
+  ]
+ },
+ "coverage": {
+  "extend_ticks": 8,
+  "fame_steps": [
+   50,
+   90
+  ]
  }
 }

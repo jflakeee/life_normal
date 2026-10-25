@@ -21,7 +21,7 @@ import {
 	BUSINESS_TAX,
 	businessUpkeep,
 	canOpenBusiness,
-	canTakeJob,
+	takeJobMissing,
 	DEATH_MONEY_LOSS,
 	DEATH_P,
 	FAME_RULES,
@@ -47,7 +47,8 @@ import {
 	type Player
 } from '$lib/core/model';
 import { Rng } from '$lib/core/rng';
-import { entryJob, jobPayMult, jobRewardMult, jobsOf, transferMissing } from '$lib/core/jobs';
+import { entryJobs, jobPayMult, jobRewardMult, jobsOf, transferMissing } from '$lib/core/jobs';
+import { addResearch, TECHS, techMissing, unlockTech } from '$lib/core/research';
 import { ACTION_RULES, activeSpread, addActionXp, missingActionIds } from '$lib/core/actions';
 import { OUTLAW } from '$lib/core/outlaw';
 
@@ -95,6 +96,7 @@ interface Agent {
 	jobIncome: Record<string, { sum: number; n: number }>;
 	actionsDone: number;
 	outlawPref: boolean; // 해양에서 해적 쪽을 고르는 플레이어
+	entryPref: number; // 진입 직종이 여럿일 때 고르는 쪽 (0~1)
 	notoriety: number;
 	notorietyDay: number;
 	banDay: number;
@@ -207,6 +209,7 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 				}
 			}
 			if (processed) job.processDone++;
+			if (job.job === 'scientist') addResearch(p, mtype === 'REQUEST' ? 3 : 1);
 			// 해적: 금지 중이 아니면 습격 (보상 ×1.6, 악명 +2, 수배 중이면 체포 판정)
 			if (job.job === 'pirate') {
 				const day = prm.day || Math.floor(t / 480) + 1;
@@ -284,8 +287,8 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	bucket.n++;
 
 	// 4) 성장 결정
-	if (!job && canTakeJob(p, line)) {
-		takeJob(p, line);
+	if (!job && takeJobMissing(p, line, entryOf(line, a)?.id).length === 0) {
+		takeJob(p, line, entryOf(line, a)?.id);
 		a.milestones['직업'] = hours;
 		a.days['직업'] = prm.day;
 		job = p.jobs[line];
@@ -320,6 +323,12 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 			a.milestones['사업'] ??= hours;
 			a.days['사업'] ??= prm.day;
 		}
+		// 과학자: 연구 점수와 여윳돈이 되면 기술 해금 (장기 지출처)
+		if (job?.job === 'scientist')
+			for (const t of TECHS) if (techMissing(p, t.id).length === 0 && p.money >= t.cost + 2_000) {
+				unlockTech(p, t.id);
+				led.spend('연구비', t.cost);
+			}
 		// 사업 뒤의 지출: 일꾼 고용(이득이면), 건물 확장 (여윳돈이 있으면)
 		if (p.businesses.length && prm.sinks.workers) {
 			const i = p.workers.findIndex((w) => w < WORKERS.max);
@@ -339,6 +348,12 @@ function tick(a: Agent, t: number, led: Ledger, rng: Rng, prm: Params, board: Bo
 	}
 }
 
+/** 진입 직종이 여럿이면 플레이어 성향대로 고른다 (지식: 과학자·기자) */
+function entryOf(line: Line, a: Agent) {
+	const es = entryJobs(line);
+	return es[Math.floor(a.entryPref * es.length)];
+}
+
 /** 옮겨 갈 상위 직종: 해양은 플레이어 성향대로 해적 또는 보물 사냥꾼, 나머지는 급여가 높은 쪽 */
 function upperTargets(p: Player, line: Line, a: Agent) {
 	const job = p.jobs[line]!;
@@ -352,7 +367,7 @@ function neededActions(p: Player, line: Line, prm: Params, a: Agent): string | n
 	const job = p.jobs[line];
 	if (!job) {
 		if (p.skills[line].level < 3) return null;
-		return missingActionIds(p, entryJob(line)?.actions)[0] ?? null;
+		return missingActionIds(p, entryOf(line, a)?.actions)[0] ?? null;
 	}
 	if (!prm.transfers) return null;
 	for (const target of upperTargets(p, line, a)) {
@@ -397,13 +412,17 @@ export function run(over: Partial<Params> = {}): Result {
 		jobIncome: {},
 		actionsDone: 0,
 		outlawPref: false,
+		entryPref: 0,
 		notoriety: 0,
 		notorietyDay: 0,
 		banDay: -1,
 		checkedDay: -1,
 		arrests: 0
 	}));
-	for (const a of agents) a.outlawPref = rng.next() < 0.5;
+	for (const a of agents) {
+		a.outlawPref = rng.next() < 0.5;
+		a.entryPref = rng.next();
+	}
 	const board = prm.events ? new Board(newTown(prm.seed + 1, prm.players)) : null;
 	const daily = prm.daily;
 	// 하루 단위 모드: 작업대 상시 임무 limit건 + 직접 수락한 의뢰 requestsPerDay건 (의뢰는 한도에 들지 않음)

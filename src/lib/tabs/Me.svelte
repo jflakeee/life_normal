@@ -50,12 +50,32 @@
 					<p class="quiet">다음 승급까지: {job.missing.join(', ')}</p>
 				{/if}
 			{:else if p.job_entry[line]}
-				{@const entry = p.job_entry[line]}
-				{#if entry.missing.length === 0}
-					<button class="secondary" disabled={game.busy} onclick={() => game.takeJob(line)}>{entry.job} 되기</button>
-				{:else}
-					<p class="quiet">{entry.job} 조건: {entry.missing.join(', ')}</p>
-				{/if}
+				{#each p.job_entry[line] as opt (opt.job)}
+					{#if opt.missing.length === 0}
+						<button class="secondary" disabled={game.busy} onclick={() => game.takeJob(line, opt.job)}>{opt.name} 되기</button>
+					{:else}
+						<p class="quiet">{opt.name} 조건: {opt.missing.join(', ')}</p>
+					{/if}
+				{/each}
+			{/if}
+			{#if line === 'KNOWLEDGE' && (job?.job === 'scientist' || p.research.points > 0)}
+				<details class="transfers">
+					<summary>연구 (점수 {p.research.points})</summary>
+					<p class="quiet">실험·현장 조사로 연구 점수를 모아 기술을 해금해요. 효과는 영구적이에요</p>
+					{#each p.research.techs as t (t.id)}
+						<div class="row">
+							<div>
+								<p><strong>{t.name}</strong> <span class="quiet">{t.effect}</span></p>
+								<p class="quiet num">
+									{t.unlocked ? '해금함' : `연구 점수 ${t.points} · 연구비 ${t.cost.toLocaleString('ko-KR')} G`}{!t.unlocked && t.missing.length ? ` · 부족: ${t.missing.join(', ')}` : ''}
+								</p>
+							</div>
+							{#if !t.unlocked}
+								<button class="secondary" disabled={t.missing.length > 0 || game.busy} onclick={() => game.research(t.id, t.name)}>해금</button>
+							{/if}
+						</div>
+					{/each}
+				</details>
 			{/if}
 			{#if line === 'SEA' && p.notoriety.value > 0}
 				<p class="outlaw">

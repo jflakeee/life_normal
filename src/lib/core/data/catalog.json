@@ -329,6 +329,36 @@
    "name": "병 속 편지",
    "line": "SEA",
    "rarity": "LEGENDARY"
+  },
+  {
+   "id": "magnifier",
+   "name": "돋보기",
+   "line": "KNOWLEDGE",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "lab_notebook",
+   "name": "연구 노트",
+   "line": "KNOWLEDGE",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "press_badge",
+   "name": "기자증",
+   "line": "KNOWLEDGE",
+   "rarity": "COMMON"
+  },
+  {
+   "id": "meteorite",
+   "name": "운석 조각",
+   "line": "KNOWLEDGE",
+   "rarity": "RARE"
+  },
+  {
+   "id": "first_edition",
+   "name": "신문 창간호",
+   "line": "KNOWLEDGE",
+   "rarity": "LEGENDARY"
   }
  ]
 }

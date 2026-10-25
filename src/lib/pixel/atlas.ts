@@ -65,6 +65,7 @@ export const SPRITES = {
 	'icon.pitchfork': tile(116), // 농업
 	'icon.pickaxe': tile(115), // 광업
 	'icon.waterbarrel': tile(131), // 해양
+	'icon.flask': tile(105), // 둥근 플라스크 → 지식
 	'player': { sheet: 'player', x: 0, y: 0, w: 16, h: 16 },
 	'npc': { sheet: 'npc', x: 0, y: 0, w: 16, h: 16 }
 } satisfies Record<string, Sprite>;
@@ -83,5 +84,6 @@ export const BUILDINGS: Record<Exclude<Line, 'COLLECTING'>, { roof: 'blue' | 're
 	SPORT: { roof: 'blue', wall: 'stone', icon: 'icon.medal' },
 	AGRICULTURE: { roof: 'red', wall: 'wood', icon: 'icon.pitchfork' },
 	MINING: { roof: 'blue', wall: 'stone', icon: 'icon.pickaxe' },
-	SEA: { roof: 'blue', wall: 'wood', icon: 'icon.waterbarrel' }
+	SEA: { roof: 'blue', wall: 'wood', icon: 'icon.waterbarrel' },
+	KNOWLEDGE: { roof: 'red', wall: 'stone', icon: 'icon.flask' }
 };

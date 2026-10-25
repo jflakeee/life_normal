@@ -30,7 +30,8 @@ export const JOBS: Record<string, JobDef> = Object.fromEntries((J.job as unknown
 export const TRANSFER = J.transfer;
 
 export const jobsOf = (line: Line) => Object.values(JOBS).filter((j) => j.line === line);
-export const entryJob = (line: Line): JobDef | undefined => jobsOf(line).find((j) => j.entry);
+export const entryJobs = (line: Line) => jobsOf(line).filter((j) => j.entry);
+export const entryJob = (line: Line): JobDef | undefined => entryJobs(line)[0];
 
 /** 직종 급여 배율 (상위 직종 +10~20%) */
 export const jobPayMult = (jobId: string | undefined) => (jobId ? (JOBS[jobId]?.pay_mult ?? 1) : 1);

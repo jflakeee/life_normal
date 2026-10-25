@@ -43,10 +43,10 @@ const ROAD_Y = 60;
 const HOUSE_W = 2 * TILE;
 const HOUSE_GAP = 4;
 
-/** 구역마다 위 줄에 서는 집 (최대 5채). 지식·공공은 생기면 중심가 아래 줄에 선다 */
+/** 구역마다 위 줄에 서는 집 (최대 5채). 공공은 생기면 중심가 광장 자리에 선다 */
 const TOP_ROW: Record<District, Line[]> = {
 	field: ['AGRICULTURE', 'MINING', 'HUNTING', 'CONSTRUCTION', 'SPORT'],
-	center: ['MEDICAL', 'SECURITY', 'ART', 'MUSIC'],
+	center: ['MEDICAL', 'SECURITY', 'ART', 'MUSIC', 'KNOWLEDGE'],
 	harbor: ['TRANSPORT', 'SEA']
 };
 

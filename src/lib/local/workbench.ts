@@ -92,9 +92,9 @@ export function advance(wb: Workbench, unlocked: number, now: number, lastActive
 }
 
 /** 탭 가속: 지금 건을 10초 당긴다 (건당 최대 30초). 당겨서 끝나면 바로 완료로 기록 */
-export function tap(slot: Slot, wb: Workbench, now: number, mission: number, tz: number): 'ok' | 'limit' | 'empty' {
+export function tap(slot: Slot, wb: Workbench, now: number, mission: number, tz: number, maxPerRun = TAP_MAX_PER_RUN): 'ok' | 'limit' | 'empty' {
 	if (!slot.template) return 'empty';
-	if (slot.tapUsed + TAP_SECONDS > TAP_MAX_PER_RUN) return 'limit';
+	if (slot.tapUsed + TAP_SECONDS > maxPerRun) return 'limit';
 	slot.tapUsed += TAP_SECONDS;
 	slot.progress += TAP_SECONDS;
 	if (slot.progress >= mission) {
